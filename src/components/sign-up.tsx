@@ -14,13 +14,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signUp } from "@/server-actions/auth";
 import { AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "./ui/spinner";
 import { signUpSchema } from "@/lib/validations/auth";
 import type { z } from "zod";
+import { authClient } from "@/lib/auth-client";
+import { BetterAuthError } from "better-auth";
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
 
@@ -44,22 +45,24 @@ export default function SignUpPage() {
     setIsPending(true);
 
     try {
-      // Convert form data to FormData for server action compatibility
-      const formData = new FormData();
-      formData.append("firstname", data.firstname);
-      formData.append("lastname", data.lastname);
-      formData.append("email", data.email);
-      formData.append("password", data.password);
+      const { error } = await authClient.signUp.email({
+        name: `${data.firstname} ${data.lastname}`,
+        email: data.email,
+        password: data.password,
+      });
 
-      const result = await signUp(null, formData);
-
-      if (result?.error) {
-        setServerError(result.error);
-      } else if (result?.success) {
-        router.push("/login");
+      if (error) {
+        throw error;
       }
+
+      // Redirect to login on success
+      router.push("/login");
     } catch (error) {
-      setServerError("An unexpected error occurred. Please try again.");
+      if (error instanceof BetterAuthError) {
+        setServerError(error.message);
+      } else {
+        setServerError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsPending(false);
     }

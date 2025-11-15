@@ -14,13 +14,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { resetPassword } from "@/server-actions/auth";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "./ui/spinner";
 import { resetPasswordSchema } from "@/lib/validations/auth";
 import type { z } from "zod";
+import { authClient } from "@/lib/auth-client";
+import { BetterAuthError } from "better-auth";
 
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
@@ -29,6 +30,8 @@ export default function ResetPasswordPage() {
   const [isPending, setIsPending] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -43,25 +46,33 @@ export default function ResetPasswordPage() {
     setIsPending(true);
     setIsSuccess(false);
 
+    if (!token) {
+      setServerError("Reset token is missing. Please use the link from your email.");
+      setIsPending(false);
+      return;
+    }
+
     try {
-      // Convert form data to FormData for server action compatibility
-      const formData = new FormData();
-      formData.append("password", data.password);
-      formData.append("token", ""); // TODO: Get token from URL params or query string
+      const { error } = await authClient.resetPassword({
+        newPassword: data.password,
+        token: token,
+      });
 
-      const result = await resetPassword(null, formData);
-
-      if (result?.error) {
-        setServerError(result.error);
-      } else if (result?.success) {
-        setIsSuccess(true);
-        // Redirect to login after a short delay
-        setTimeout(() => {
-          router.push("/login");
-        }, 2000);
+      if (error) {
+        throw error;
       }
+
+      setIsSuccess(true);
+      // Redirect to login after a short delay
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
     } catch (error) {
-      setServerError("An unexpected error occurred. Please try again.");
+      if (error instanceof BetterAuthError) {
+        setServerError(error.message);
+      } else {
+        setServerError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsPending(false);
     }

@@ -13,12 +13,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { forgotPassword } from "@/server-actions/auth";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "./ui/spinner";
 import { forgotPasswordSchema } from "@/lib/validations/auth";
 import type { z } from "zod";
+import { authClient } from "@/lib/auth-client";
+import { BetterAuthError } from "better-auth";
 
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
 
@@ -40,20 +41,22 @@ export default function ForgotPasswordPage() {
     setIsSuccess(false);
 
     try {
-      // Convert form data to FormData for server action compatibility
-      const formData = new FormData();
-      formData.append("email", data.email);
+      const { error } = await authClient.forgotPassword({
+        email: data.email,
+      });
 
-      const result = await forgotPassword(null, formData);
-
-      if (result?.error) {
-        setServerError(result.error);
-      } else if (result?.success) {
-        setIsSuccess(true);
-        form.reset();
+      if (error) {
+        throw error;
       }
+
+      setIsSuccess(true);
+      form.reset();
     } catch (error) {
-      setServerError("An unexpected error occurred. Please try again.");
+      if (error instanceof BetterAuthError) {
+        setServerError(error.message);
+      } else {
+        setServerError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsPending(false);
     }

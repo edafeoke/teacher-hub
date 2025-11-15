@@ -1,4 +1,6 @@
+import { auth } from "@/lib/auth";
 import { authClient } from "@/lib/auth-client";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
@@ -6,9 +8,11 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await authClient.getSession();
-  console.log(session);
-  if (!session?.data) {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  console.log("session", session);
+  if (!session?.user) {
     redirect("/login");
   }
   return <>{children}</>;

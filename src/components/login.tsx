@@ -14,18 +14,21 @@ import Link from "next/link";
 import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { signIn } from "@/server-actions/auth";
 import { Spinner } from "./ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import { loginSchema } from "@/lib/validations/auth";
 import type { z } from "zod";
+import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
+import { BetterAuthError } from "better-auth";
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [serverError, setServerError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
-
+  
+  // const router = useRouter();
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -39,21 +42,23 @@ export default function LoginPage() {
     setIsPending(true);
 
     try {
-      // Convert form data to FormData for server action compatibility
-      const formData = new FormData();
-      formData.append("email", data.email);
-      formData.append("password", data.password);
-
-      const result = await signIn(null, formData);
-
-      if (result?.error) {
-        setServerError(result.error);
-      } else if (result?.success) {
-        // Handle success (e.g., redirect)
-        // router.push("/");
-      }
+     
+      const { error } = await authClient.signIn.email({
+        email: data.email,
+        password: data.password,
+        rememberMe: true,
+        callbackURL: "/",
+      });
+      
+      if (error) {
+        throw error;
+      } 
     } catch (error) {
-      setServerError("An unexpected error occurred. Please try again.");
+      if (error instanceof BetterAuthError) {
+        setServerError(error.message);
+      } else {
+        setServerError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setIsPending(false);
     }

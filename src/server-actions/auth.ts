@@ -40,7 +40,7 @@ export const signIn = async (prevState: any, formData: FormData) => {
                 email,
                 password,
             },
-            // headers: await headers(),
+            headers: await headers(),
         })
 
         // redirect("/");
