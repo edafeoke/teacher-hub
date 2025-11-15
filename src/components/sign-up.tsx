@@ -3,31 +3,71 @@
 import { LogoIcon } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
 import Link from "next/link";
-import { useActionState, useEffect } from "react";
+import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { signUp } from "@/server-actions/auth";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Spinner } from "./ui/spinner";
+import { signUpSchema } from "@/lib/validations/auth";
+import type { z } from "zod";
+
+type SignUpFormData = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
-  const [state, formAction, isPending] = useActionState(signUp, null);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
   const router = useRouter();
-  useEffect(() => {
-    console.log(state);
-    if (state?.success) {
-      router.push("/login");
+
+  const form = useForm<SignUpFormData>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      firstname: "",
+      lastname: "",
+      email: "",
+      password: "",
+    },
+  });
+
+  async function onSubmit(data: SignUpFormData) {
+    setServerError(null);
+    setIsPending(true);
+
+    try {
+      // Convert form data to FormData for server action compatibility
+      const formData = new FormData();
+      formData.append("firstname", data.firstname);
+      formData.append("lastname", data.lastname);
+      formData.append("email", data.email);
+      formData.append("password", data.password);
+
+      const result = await signUp(null, formData);
+
+      if (result?.error) {
+        setServerError(result.error);
+      } else if (result?.success) {
+        router.push("/login");
+      }
+    } catch (error) {
+      setServerError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsPending(false);
     }
-  }, [state]);
+  }
+
   return (
     <section className="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent">
-      <form
-        action={formAction}
-        className="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]"
-      >
-        
+      <div className="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]">
         <div className="p-8 pb-6">
           <div>
             <Link href="/" aria-label="go home">
@@ -90,90 +130,115 @@ export default function SignUpPage() {
 
           <hr className="my-4 border-dashed" />
 
-          <div className="space-y-5">
-          {state?.error && (
-          <Alert variant="destructive">
-            <AlertCircle className="w-4 h-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{state.error}</AlertDescription>
-          </Alert>
-        )}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="firstname" className="block text-sm">
-                  Firstname
-                </Label>
-                <Input
-                  type="text"
-                  required
+          {serverError && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertCircle className="w-4 h-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{serverError}</AlertDescription>
+            </Alert>
+          )}
+
+          <form id="signup-form" onSubmit={form.handleSubmit(onSubmit)}>
+            <FieldGroup>
+              <div className="grid grid-cols-2 gap-3">
+                <Controller
                   name="firstname"
-                  id="firstname"
-                  defaultValue={"Great"}
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="signup-firstname">
+                        Firstname
+                      </FieldLabel>
+                      <Input
+                        {...field}
+                        id="signup-firstname"
+                        type="text"
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="given-name"
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastname" className="block text-sm">
-                  Lastname
-                </Label>
-                <Input
-                  type="text"
-                  required
+
+                <Controller
                   name="lastname"
-                  id="lastname"
-                  defaultValue={"Afeoke"}
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <Field data-invalid={fieldState.invalid}>
+                      <FieldLabel htmlFor="signup-lastname">Lastname</FieldLabel>
+                      <Input
+                        {...field}
+                        id="signup-lastname"
+                        type="text"
+                        aria-invalid={fieldState.invalid}
+                        autoComplete="family-name"
+                      />
+                      {fieldState.invalid && (
+                        <FieldError errors={[fieldState.error]} />
+                      )}
+                    </Field>
+                  )}
                 />
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email" className="block text-sm">
-                Email
-              </Label>
-              <Input
-                type="email"
-                required
+              <Controller
                 name="email"
-                id="email"
-                defaultValue={"greatedafeoke@gmail.com"}
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="signup-email">Email</FieldLabel>
+                    <Input
+                      {...field}
+                      id="signup-email"
+                      type="email"
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="email"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
               />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="pwd" className="text-sm">
-                Password
-              </Label>
-              <Input
-                type="password"
-                required
+              <Controller
                 name="password"
-                id="pwd"
-                className="input sz-md variant-mixed"
-                defaultValue={"Password123!"}
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="signup-password">Password</FieldLabel>
+                    <Input
+                      {...field}
+                      id="signup-password"
+                      type="password"
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="new-password"
+                      className="input sz-md variant-mixed"
+                    />
+                    <FieldDescription>
+                      Must be at least 8 characters with uppercase, lowercase,
+                      and a number.
+                    </FieldDescription>
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
               />
-            </div>
-            {/* <div className="space-y-2">
-                            <Label
-                                htmlFor="confirm-pwd"
-                                className="text-sm">
-                                Confirm Password
-                            </Label>
-                            <Input
-                                type="password"
-                                required
-                                name="confirm-pwd"
-                                id="confirm-pwd"
-                                className="input sz-md variant-mixed"
-                            />
-                        </div> */}
+            </FieldGroup>
+          </form>
 
-            <Button className="w-full" disabled={isPending}>
-              {isPending ? (
-                <Spinner />
-              ) : (
-                "Continue"
-              )}
-            </Button>
-          </div>
+          <Button
+            type="submit"
+            form="signup-form"
+            className="mt-6 w-full"
+            disabled={isPending}
+          >
+            {isPending ? <Spinner /> : "Continue"}
+          </Button>
         </div>
 
         <div className="bg-muted rounded-(--radius) border p-3">
@@ -184,7 +249,7 @@ export default function SignUpPage() {
             </Button>
           </p>
         </div>
-      </form>
+      </div>
     </section>
   );
 }

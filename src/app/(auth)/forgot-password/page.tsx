@@ -1,8 +1,7 @@
-export default function ForgotPasswordPage() {
-  return (
-    <div>
-      <h1>Forgot Password</h1>
-    </div>
-  );
+import ForgotPasswordPage from "@/components/forgot-password";
+
+export default function ForgotPasswordPageComponent() {
+  return <ForgotPasswordPage />;
 }
+
 

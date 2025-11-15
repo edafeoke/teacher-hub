@@ -3,27 +3,65 @@
 import { LogoIcon } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { AlertCircle, Loader2 } from "lucide-react";
+import {
+  Field,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import { AlertCircle } from "lucide-react";
 import Link from "next/link";
-import { useActionState, useEffect } from "react";
+import { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "@/server-actions/auth";
 import { Spinner } from "./ui/spinner";
 import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { loginSchema } from "@/lib/validations/auth";
+import type { z } from "zod";
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const [state, formAction, isPending] = useActionState(signIn, null);
-  useEffect(() => {
-    // if (state?.success) {
-    //     router.push("/");
-    // }
-  }, [state]);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  const form = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
+
+  async function onSubmit(data: LoginFormData) {
+    setServerError(null);
+    setIsPending(true);
+
+    try {
+      // Convert form data to FormData for server action compatibility
+      const formData = new FormData();
+      formData.append("email", data.email);
+      formData.append("password", data.password);
+
+      const result = await signIn(null, formData);
+
+      if (result?.error) {
+        setServerError(result.error);
+      } else if (result?.success) {
+        // Handle success (e.g., redirect)
+        // router.push("/");
+      }
+    } catch (error) {
+      setServerError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
   return (
     <section className="flex min-h-screen bg-zinc-50 px-4 py-16 md:py-32 dark:bg-transparent">
-      <form
-        action={formAction}
-        className="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]"
-      >
+      <div className="bg-card m-auto h-fit w-full max-w-sm rounded-[calc(var(--radius)+.125rem)] border p-0.5 shadow-md dark:[--color-muted:var(--color-zinc-900)]">
         <div className="p-8 pb-6">
           <div>
             <Link href="/" aria-label="go home">
@@ -86,48 +124,77 @@ export default function LoginPage() {
 
           <hr className="my-4 border-dashed" />
 
-          {state?.error && (
-            <Alert variant="destructive">
+          {serverError && (
+            <Alert variant="destructive" className="mb-6">
               <AlertCircle className="w-4 h-4" />
               <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{state?.error}</AlertDescription>
+              <AlertDescription>{serverError}</AlertDescription>
             </Alert>
           )}
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="block text-sm">
-                Email
-              </Label>
-              <Input type="email" required name="email" id="email" />
-            </div>
 
-            <div className="space-y-0.5">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="pwd" className="text-sm">
-                  Password
-                </Label>
-                <Button asChild variant="link" size="sm">
-                  <Link
-                    href="/forgot-password"
-                    className="link intent-info variant-ghost text-sm"
-                  >
-                    Forgot your Password ?
-                  </Link>
-                </Button>
-              </div>
-              <Input
-                type="password"
-                required
-                name="password"
-                id="pwd"
-                className="input sz-md variant-mixed"
+          <form id="login-form" onSubmit={form.handleSubmit(onSubmit)}>
+            <FieldGroup>
+              <Controller
+                name="email"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <FieldLabel htmlFor="login-email">Email</FieldLabel>
+                    <Input
+                      {...field}
+                      id="login-email"
+                      type="email"
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="email"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
               />
-            </div>
 
-            <Button className="w-full" disabled={isPending}>
-              {isPending ? <Spinner /> : "Sign In"}
-            </Button>
-          </div>
+              <Controller
+                name="password"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <Field data-invalid={fieldState.invalid}>
+                    <div className="flex items-center justify-between">
+                      <FieldLabel htmlFor="login-password">Password</FieldLabel>
+                      <Button asChild variant="link" size="sm">
+                        <Link
+                          href="/forgot-password"
+                          className="link intent-info variant-ghost text-sm"
+                        >
+                          Forgot your Password ?
+                        </Link>
+                      </Button>
+                    </div>
+                    <Input
+                      {...field}
+                      id="login-password"
+                      type="password"
+                      aria-invalid={fieldState.invalid}
+                      autoComplete="current-password"
+                      className="input sz-md variant-mixed"
+                    />
+                    {fieldState.invalid && (
+                      <FieldError errors={[fieldState.error]} />
+                    )}
+                  </Field>
+                )}
+              />
+            </FieldGroup>
+          </form>
+
+          <Button
+            type="submit"
+            form="login-form"
+            className="mt-6 w-full"
+            disabled={isPending}
+          >
+            {isPending ? <Spinner /> : "Sign In"}
+          </Button>
         </div>
 
         <div className="bg-muted rounded-(--radius) border p-3">
@@ -138,7 +205,7 @@ export default function LoginPage() {
             </Button>
           </p>
         </div>
-      </form>
+      </div>
     </section>
   );
 }
