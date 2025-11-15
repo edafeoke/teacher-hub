@@ -49,14 +49,15 @@ export default function SignUpPage() {
         name: `${data.firstname} ${data.lastname}`,
         email: data.email,
         password: data.password,
+        callbackURL: "/onboarding",
       });
 
       if (error) {
         throw error;
       }
 
-      // Redirect to login on success
-      router.push("/login");
+      // // Redirect to login on success
+      router.push("/onboarding");
     } catch (error) {
       if (error instanceof BetterAuthError) {
         setServerError(error.message);
@@ -171,7 +172,9 @@ export default function SignUpPage() {
                   control={form.control}
                   render={({ field, fieldState }) => (
                     <Field data-invalid={fieldState.invalid}>
-                      <FieldLabel htmlFor="signup-lastname">Lastname</FieldLabel>
+                      <FieldLabel htmlFor="signup-lastname">
+                        Lastname
+                      </FieldLabel>
                       <Input
                         {...field}
                         id="signup-lastname"

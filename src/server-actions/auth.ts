@@ -16,7 +16,7 @@ export const signUp = async (prevState: any, formData: FormData) => {
             body: {
                 name: `${firstname} ${lastname}`,
                 email,
-                password,
+                password
             },
             headers: await headers(),
         });
