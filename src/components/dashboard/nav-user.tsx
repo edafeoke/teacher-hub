@@ -46,8 +46,16 @@ export function NavUser({
   const { isMobile } = useSidebar();
   const router = useRouter();
   const handleLogout = async () => {
-    authClient.signOut();
-    router.push("/login");
+    try {
+      await authClient.signOut();
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Error signing out:", error);
+      // Still redirect even if there's an error
+      router.push("/login");
+      router.refresh();
+    }
   };
 
   const initials = user.name

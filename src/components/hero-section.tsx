@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Logo } from "@/components/logo";
 import { ArrowRight, Menu, Rocket, X, LayoutDashboard, LogOut, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,20 @@ export default function HeroSection() {
     studentProfile: any;
   } | null>(null);
   const session = authClient.useSession();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    try {
+      await authClient.signOut();
+      router.push("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("Error signing out:", error);
+      // Still redirect even if there's an error
+      router.push("/login");
+      router.refresh();
+    }
+  };
 
   // Fetch user profiles when session is available
   React.useEffect(() => {
@@ -168,7 +183,7 @@ export default function HeroSection() {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={() => authClient.signOut()}
+                            onClick={handleSignOut}
                             className="w-full sm:w-auto"
                           >
                             <LogOut className="mr-2 h-4 w-4" />
@@ -243,7 +258,7 @@ export default function HeroSection() {
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => authClient.signOut()}
+                              onClick={handleSignOut}
                               variant="destructive"
                               className="cursor-pointer"
                             >
