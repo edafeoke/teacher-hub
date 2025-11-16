@@ -13,11 +13,15 @@ import { GraduationCap, User } from "lucide-react";
 interface RoleSelectionStepProps {
   onNext: (data: RoleSelectionData) => void;
   defaultValues?: RoleSelectionData;
+  hasTeacherProfile?: boolean;
+  hasStudentProfile?: boolean;
 }
 
 export function RoleSelectionStep({
   onNext,
   defaultValues,
+  hasTeacherProfile = false,
+  hasStudentProfile = false,
 }: RoleSelectionStepProps) {
   const form = useForm<RoleSelectionData>({
     resolver: zodResolver(roleSelectionSchema),
@@ -25,6 +29,11 @@ export function RoleSelectionStep({
   });
 
   const onSubmit = (data: RoleSelectionData) => {
+    // Prevent submission if user tries to select a role they already have
+    if ((data.role === "teacher" && hasTeacherProfile) || 
+        (data.role === "student" && hasStudentProfile)) {
+      return;
+    }
     onNext(data);
   };
 
@@ -53,15 +62,22 @@ export function RoleSelectionStep({
                     value="teacher"
                     id="role-teacher"
                     className="peer sr-only"
+                    disabled={hasTeacherProfile}
                   />
                   <Label
                     htmlFor="role-teacher"
-                    className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                    className={`flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-6 peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary ${
+                      hasTeacherProfile
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                    }`}
                   >
                     <GraduationCap className="mb-2 h-8 w-8" />
                     <span className="text-lg font-semibold">Teacher</span>
                     <span className="text-muted-foreground text-sm text-center mt-1">
-                      Share your knowledge and teach students
+                      {hasTeacherProfile
+                        ? "You already have a teacher account"
+                        : "Share your knowledge and teach students"}
                     </span>
                   </Label>
                 </div>
@@ -70,15 +86,22 @@ export function RoleSelectionStep({
                     value="student"
                     id="role-student"
                     className="peer sr-only"
+                    disabled={hasStudentProfile}
                   />
                   <Label
                     htmlFor="role-student"
-                    className="flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-6 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                    className={`flex flex-col items-center justify-center rounded-lg border-2 border-muted bg-background p-6 peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary ${
+                      hasStudentProfile
+                        ? "opacity-50 cursor-not-allowed"
+                        : "hover:bg-accent hover:text-accent-foreground cursor-pointer"
+                    }`}
                   >
                     <User className="mb-2 h-8 w-8" />
                     <span className="text-lg font-semibold">Student</span>
                     <span className="text-muted-foreground text-sm text-center mt-1">
-                      Find teachers and learn new skills
+                      {hasStudentProfile
+                        ? "You already have a student account"
+                        : "Find teachers and learn new skills"}
                     </span>
                   </Label>
                 </div>

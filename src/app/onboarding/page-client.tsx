@@ -31,12 +31,21 @@ const STEPS = ["Role", "Basic Info", "Details", "Availability", "Review"];
 interface OnboardingPageProps {
   userName: string;
   userImage?: string | null;
+  hasTeacherProfile: boolean;
+  hasStudentProfile: boolean;
+  defaultRole?: "teacher" | "student";
 }
 
-export default function OnboardingPage({ userName, userImage }: OnboardingPageProps) {
+export default function OnboardingPage({ 
+  userName, 
+  userImage, 
+  hasTeacherProfile, 
+  hasStudentProfile,
+  defaultRole
+}: OnboardingPageProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
-  const [role, setRole] = useState<"teacher" | "student" | null>(null);
+  const [role, setRole] = useState<"teacher" | "student" | null>(defaultRole || null);
   const [formData, setFormData] = useState<{
     role?: RoleSelectionData;
     basicInfo?: BasicInfoData;
@@ -120,7 +129,7 @@ export default function OnboardingPage({ userName, userImage }: OnboardingPagePr
 
         const result = await createStudentProfile(studentData);
         if (result.success) {
-          router.push("/student/dashboard");
+          router.push("/student");
         } else {
           setError(result.error || "Failed to create student profile");
           setIsSubmitting(false);
@@ -140,13 +149,24 @@ export default function OnboardingPage({ userName, userImage }: OnboardingPagePr
     }
   };
 
+  // Auto-advance if role is pre-selected
+  React.useEffect(() => {
+    if (defaultRole && !formData.role && currentStep === 1) {
+      const roleData: RoleSelectionData = { role: defaultRole };
+      handleRoleSelection(roleData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultRole]);
+
   const renderStep = () => {
     switch (currentStep) {
       case 1:
         return (
           <RoleSelectionStep
             onNext={handleRoleSelection}
-            defaultValues={formData.role}
+            defaultValues={formData.role || (defaultRole ? { role: defaultRole } : undefined)}
+            hasTeacherProfile={hasTeacherProfile}
+            hasStudentProfile={hasStudentProfile}
           />
         );
       case 2:
