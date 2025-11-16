@@ -43,7 +43,7 @@ export async function createTeacherProfile(data: TeacherOnboardingData) {
         qualifications: data.professionalDetails.qualifications || null,
         teachingStyle: data.professionalDetails.teachingStyle || null,
         hourlyRate: data.professionalDetails.hourlyRate || null,
-        demoClassAvailable: data.professionalDetails.demoClassAvailable,
+        demoClassAvailable: data.professionalDetails.demoClassAvailable ?? false,
         availability: data.availability.availability || null,
         languagesSpoken: data.availability.languagesSpoken,
         phoneNumber: data.availability.phoneNumber || null,

@@ -2,9 +2,7 @@ import * as z from "zod";
 
 // Step 1: Role Selection
 export const roleSelectionSchema = z.object({
-  role: z.enum(["teacher", "student"], {
-    required_error: "Please select a role.",
-  }),
+  role: z.enum(["teacher", "student"]),
 });
 
 export type RoleSelectionData = z.infer<typeof roleSelectionSchema>;
@@ -12,7 +10,7 @@ export type RoleSelectionData = z.infer<typeof roleSelectionSchema>;
 // Step 2: Basic Information (shared for both roles)
 export const basicInfoSchema = z.object({
   gender: z.string().optional(),
-  dateOfBirth: z.date().optional().or(z.string().transform((str) => (str ? new Date(str) : undefined))),
+  dateOfBirth: z.date().optional(),
   bio: z.string().optional(),
   city: z.string().optional(),
   country: z.string().optional(),
@@ -28,7 +26,7 @@ export const teacherProfessionalDetailsSchema = z.object({
   qualifications: z.string().optional(),
   teachingStyle: z.string().optional(),
   hourlyRate: z.number().min(0).optional(),
-  demoClassAvailable: z.boolean().default(false),
+  demoClassAvailable: z.boolean().optional(),
 });
 
 export type TeacherProfessionalDetailsData = z.infer<typeof teacherProfessionalDetailsSchema>;
@@ -59,7 +57,7 @@ export type AvailabilitySlot = z.infer<typeof availabilitySlotSchema>;
 
 export const availabilitySchema = z.object({
   availability: z.array(availabilitySlotSchema).optional(),
-  languagesSpoken: z.array(z.string()).default([]),
+  languagesSpoken: z.array(z.string()),
   phoneNumber: z.string().optional(),
 });
 
