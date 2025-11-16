@@ -30,6 +30,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { authClient } from "@/lib/auth-client";
+import { useRouter } from "next/navigation";
 
 export function NavUser({
   user,
@@ -43,9 +44,10 @@ export function NavUser({
   role: "teacher" | "student";
 }) {
   const { isMobile } = useSidebar();
-
+  const router = useRouter();
   const handleLogout = async () => {
-    await authClient.signOut();
+    authClient.signOut();
+    router.push("/login");
   };
 
   const initials = user.name

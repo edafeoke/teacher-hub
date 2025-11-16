@@ -10,11 +10,11 @@ import {
   MessageSquare,
   Bell,
   GraduationCap,
-  BookOpen,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { Logo } from "@/components/logo";
 import { NavMain } from "@/components/dashboard/nav-main";
 import { NavUser } from "@/components/dashboard/nav-user";
 import { ProfileSwitcher } from "@/components/dashboard/profile-switcher";
@@ -137,8 +137,7 @@ export function AppSidebar({
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
               <Link href={role === "teacher" ? "/teacher" : "/student"}>
-                <BookOpen className="!size-5" />
-                <span className="text-base font-semibold">TeacherHub</span>
+                <Logo className="!h-6" uniColor />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

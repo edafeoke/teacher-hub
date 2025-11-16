@@ -53,21 +53,23 @@ export default function HeroSection() {
   // Determine user role and routes
   const isTeacher = userProfiles?.teacherProfile !== null;
   const isStudent = userProfiles?.studentProfile !== null;
+  const isLoggedIn = !!session.data?.user;
+  const hasBothProfiles = isTeacher && isStudent;
   
   // Teacher routes: if profile exists, go to dashboard; otherwise, go to onboarding
-  const teacherRoute = isTeacher ? "/teacher" : "/onboarding";
+  const teacherRoute = isTeacher ? "/teacher" : "/onboarding?role=teacher";
   const teacherLabel = isTeacher ? "Teacher Dashboard" : "Create Teacher Account";
   
   // Student routes: if profile exists, go to dashboard; otherwise, go to onboarding
-  const studentRoute = isStudent ? "/student" : "/onboarding";
+  const studentRoute = isStudent ? "/student" : "/onboarding?role=student";
   const studentLabel = isStudent ? "Student Dashboard" : "Create Student Account";
   
-  // Dashboard route (primary): prefer teacher if exists, else student, else onboarding
-  // const dashboardRoute = isTeacher
-  //   ? "/teacher/dashboard"
-  //   : isStudent
-  //   ? "/student/dashboard"
-  //   : "/onboarding";
+  // Determine primary dashboard route
+  const dashboardRoute = isTeacher
+    ? "/teacher"
+    : isStudent
+    ? "/student"
+    : "/onboarding";
   
   const profileRoute = isTeacher
     ? "/teacher/profile"
@@ -291,17 +293,54 @@ export default function HeroSection() {
                 </p>
 
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                  <Button size="lg" asChild>
-                    <Link href="/register">
-                      <Rocket className="relative size-4" />
-                      <span className="text-nowrap">Get Started</span>
-                    </Link>
-                  </Button>
-                  <Button size="lg" variant="outline" asChild>
-                    <Link href="/login">
-                      <span className="text-nowrap">Sign In</span>
-                    </Link>
-                  </Button>
+                  {!isLoggedIn ? (
+                    <>
+                      <Button size="lg" asChild>
+                        <Link href="/register">
+                          <Rocket className="relative size-4" />
+                          <span className="text-nowrap">Get Started</span>
+                        </Link>
+                      </Button>
+                      <Button size="lg" variant="outline" asChild>
+                        <Link href="/login">
+                          <span className="text-nowrap">Sign In</span>
+                        </Link>
+                      </Button>
+                    </>
+                  ) : hasBothProfiles ? (
+                    <>
+                      <Button size="lg" asChild>
+                        <Link href="/teacher">
+                          <LayoutDashboard className="relative size-4" />
+                          <span className="text-nowrap">Go to Teacher Dashboard</span>
+                        </Link>
+                      </Button>
+                      <Button size="lg" variant="outline" asChild>
+                        <Link href="/student">
+                          <LayoutDashboard className="relative size-4" />
+                          <span className="text-nowrap">Go to Student Dashboard</span>
+                        </Link>
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button size="lg" asChild>
+                        <Link href={dashboardRoute}>
+                          <LayoutDashboard className="relative size-4" />
+                          <span className="text-nowrap">
+                            {isTeacher ? "Go to Teacher Dashboard" : isStudent ? "Go to Student Dashboard" : "Create Account"}
+                          </span>
+                        </Link>
+                      </Button>
+                      {!isTeacher && !isStudent && (
+                        <Button size="lg" variant="outline" asChild>
+                          <Link href="/onboarding">
+                            <span className="text-nowrap">Create Account</span>
+                          </Link>
+                        </Button>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
