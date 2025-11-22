@@ -24,6 +24,7 @@ async function getSessions(): Promise<AdminSession[]> {
 
   return sessions.map((s) => ({
     id: s.id,
+    token: s.token,
     userName: s.user.name,
     userEmail: s.user.email,
     ipAddress: s.ipAddress,

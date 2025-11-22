@@ -23,8 +23,10 @@ import type { AdminUser } from "@/components/admin/user-table";
 
 const editUserSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  role: z.string().optional(),
+  role: z.string().optional().nullable(),
 });
+
+type EditUserFormData = z.infer<typeof editUserSchema>;
 
 interface EditUserDialogProps {
   user: AdminUser | null;
@@ -36,22 +38,27 @@ interface EditUserDialogProps {
 export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: EditUserDialogProps) {
   const [loading, setLoading] = React.useState(false);
 
-  const form = useForm<z.infer<typeof editUserSchema>>({
+  const form = useForm<EditUserFormData>({
     resolver: zodResolver(editUserSchema),
-    values: user || {
-        name: "",
-        email: user?.email || "",
-      role: user?.role || "user",
+    defaultValues: {
+      name: "",
+      role: "user",
     },
+    values: user
+      ? {
+          name: user.name,
+          role: user.role ?? undefined,
+        }
+      : undefined,
   });
 
-  async function onSubmit(values: z.infer<typeof editUserSchema>) {
+  async function onSubmit(values: EditUserFormData) {
     if (!user) return;
     try {
       setLoading(true);
       const result = await updateUser(user.id, {
         name: values.name,
-        role: values.role,
+        role: values.role ?? undefined,
       });
 
       if (!result.success) {
@@ -61,9 +68,10 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
       toast.success("User updated successfully");
       onOpenChange(false);
       onUserUpdated();
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || "Failed to update user");
+      const errorMessage = error instanceof Error ? error.message : "Failed to update user";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -88,12 +96,7 @@ export function EditUserDialog({ user, open, onOpenChange, onUserUpdated }: Edit
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input disabled id="email" type="email" {...form.register("email")} />
-            {/* {form.formState.errors.email && (
-              <p className="text-destructive text-sm">
-                {form.formState.errors.email.message}
-              </p>
-            )} */}
+            <Input disabled id="email" type="email" value={user?.email || ""} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>

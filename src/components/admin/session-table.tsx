@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 
 export type AdminSession = {
   id: string;
+  token: string;
   userName: string;
   userEmail: string;
   ipAddress?: string | null;

@@ -12,7 +12,7 @@ export function SessionManagement({ initialSessions }: { initialSessions: AdminS
 
   const handleRevoke = async (session: AdminSession) => {
     try {
-      const result = await revokeSession(session.id);
+      const result = await revokeSession(session.token);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to revoke session");
@@ -20,9 +20,10 @@ export function SessionManagement({ initialSessions }: { initialSessions: AdminS
 
       toast.success("Session revoked successfully");
       router.refresh();
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      toast.error(error.message || "Failed to revoke session");
+      const errorMessage = error instanceof Error ? error.message : "Failed to revoke session";
+      toast.error(errorMessage);
     }
   };
 
