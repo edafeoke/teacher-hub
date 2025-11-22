@@ -1,0 +1,83 @@
+"use client"
+
+import * as React from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
+
+function getBreadcrumbs(pathname: string) {
+  const segments = pathname.split("/").filter(Boolean);
+  const breadcrumbs: { label: string; href: string }[] = [];
+
+  // Map route segments to friendly labels
+  const labelMap: Record<string, string> = {
+    admin: "Admin",
+    users: "Users",
+    sessions: "Sessions",
+    analytics: "Analytics",
+    settings: "Settings",
+  };
+
+  let currentPath = "";
+  segments.forEach((segment, index) => {
+    currentPath += `/${segment}`;
+    const label = labelMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+    breadcrumbs.push({
+      label,
+      href: currentPath,
+    });
+  });
+
+  // If no breadcrumbs, add Dashboard
+  if (breadcrumbs.length === 0 || (breadcrumbs.length === 1 && breadcrumbs[0].label === "Admin")) {
+    return [{ label: "Dashboard", href: "/admin" }];
+  }
+
+  return breadcrumbs;
+}
+
+export function AdminHeader() {
+  const pathname = usePathname();
+  const breadcrumbs = getBreadcrumbs(pathname || "");
+
+  return (
+    <header className="flex h-(--header-height) shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-(--header-height)">
+      <div className="flex w-full items-center gap-1 px-4 lg:gap-2 lg:px-6">
+        <SidebarTrigger className="-ml-1" />
+        <Separator
+          orientation="vertical"
+          className="mx-2 data-[orientation=vertical]:h-4"
+        />
+        <Breadcrumb>
+          <BreadcrumbList>
+            {breadcrumbs.map((crumb, index) => (
+              <React.Fragment key={crumb.href}>
+                <BreadcrumbItem>
+                  {index === breadcrumbs.length - 1 ? (
+                    <BreadcrumbPage>{crumb.label}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink asChild>
+                      <Link href={crumb.href}>{crumb.label}</Link>
+                    </BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+                {index < breadcrumbs.length - 1 && <BreadcrumbSeparator />}
+              </React.Fragment>
+            ))}
+          </BreadcrumbList>
+        </Breadcrumb>
+      </div>
+    </header>
+  );
+}
+
+

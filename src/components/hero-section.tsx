@@ -310,17 +310,17 @@ export default function HeroSection() {
                 <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
                   {!isLoggedIn ? (
                     <>
-                      <Button size="lg" asChild>
-                        <Link href="/register">
-                          <Rocket className="relative size-4" />
-                          <span className="text-nowrap">Get Started</span>
-                        </Link>
-                      </Button>
-                      <Button size="lg" variant="outline" asChild>
-                        <Link href="/login">
-                          <span className="text-nowrap">Sign In</span>
-                        </Link>
-                      </Button>
+                  <Button size="lg" asChild>
+                    <Link href="/register">
+                      <Rocket className="relative size-4" />
+                      <span className="text-nowrap">Get Started</span>
+                    </Link>
+                  </Button>
+                  <Button size="lg" variant="outline" asChild>
+                    <Link href="/login">
+                      <span className="text-nowrap">Sign In</span>
+                    </Link>
+                  </Button>
                     </>
                   ) : hasBothProfiles ? (
                     <>

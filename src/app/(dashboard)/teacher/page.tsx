@@ -15,6 +15,7 @@ import {
   User,
 } from "lucide-react";
 import { addDays } from "date-fns";
+import prisma from "@/lib/prisma";
 
 // Placeholder data - to be replaced when session/booking models are added
 const getUpcomingSessions = () => {
@@ -87,15 +88,28 @@ export default async function TeacherDashboard() {
     redirect("/onboarding");
   }
 
-  // Placeholder stats - to be replaced with actual data from database
+  const teacherId = session.user.teacherProfile.id;
+  const userId = session.user.id;
+
+  // Calculate actual stats from database
+  // Note: These will be 0 until booking/session/review models are added
+  // For now, we can count total students with student profiles as a placeholder
+  const totalStudentsWithProfiles = await prisma.studentProfile.count();
+  
+  // Since there are no booking/session models yet, these will be 0
+  const totalStudents = 0; // Will be calculated from bookings when model exists
+  const upcomingSessionsCount = 0; // Will be calculated from bookings when model exists
+  const earnings = "$0"; // Will be calculated from payments when model exists
+  const averageRating = 0; // Will be calculated from reviews when model exists
+
   const stats = {
-    totalStudents: 24,
-    upcomingSessions: 8,
-    earnings: "$2,450",
-    averageRating: 4.8,
+    totalStudents,
+    upcomingSessions: upcomingSessionsCount,
+    earnings,
+    averageRating: averageRating > 0 ? averageRating.toFixed(1) : "N/A",
   };
 
-  const upcomingSessions = getUpcomingSessions();
+  const upcomingSessionsList = getUpcomingSessions();
   const recentStudents = getRecentStudents();
 
   const quickActions = [
@@ -121,7 +135,7 @@ export default async function TeacherDashboard() {
 
   return (
     <div className="px-4 lg:px-6 space-y-8">
-      <div>
+    <div>
         <h1 className="text-3xl font-bold">Teacher Dashboard</h1>
         <p className="text-muted-foreground mt-2">
           Welcome back, {session.user.name}!
@@ -165,8 +179,8 @@ export default async function TeacherDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {upcomingSessions.length > 0 ? (
-                  upcomingSessions.map((session) => (
+                {upcomingSessionsList.length > 0 ? (
+                  upcomingSessionsList.map((session) => (
                     <SessionCard
                       key={session.id}
                       name={session.studentName}

@@ -1,4 +1,4 @@
-import { getSessionWithProfiles } from "@/lib/auth-helpers";
+import { getSessionWithProfiles, getImpersonationInfo } from "@/lib/auth-helpers";
 import { redirect } from "next/navigation";
 import { DashboardWrapper } from "@/components/dashboard/dashboard-wrapper";
 
@@ -26,11 +26,14 @@ export default async function DashboardLayout({
     image: session.user.image,
   };
 
+  const impersonationInfo = await getImpersonationInfo();
+
   return (
     <DashboardWrapper
       user={user}
       hasTeacherProfile={hasTeacherProfile}
       hasStudentProfile={hasStudentProfile}
+      impersonationInfo={impersonationInfo}
     >
       {children}
     </DashboardWrapper>

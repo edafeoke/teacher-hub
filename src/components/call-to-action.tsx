@@ -63,23 +63,23 @@ export default function CallToAction() {
                     <div className="mt-12 flex flex-wrap justify-center gap-4">
                         {!isLoggedIn ? (
                             <>
-                                <Button
-                                    asChild
-                                    size="lg">
-                                    <Link href="/register">
-                                        <Rocket className="size-4" />
-                                        <span>Get Started Free</span>
-                                    </Link>
-                                </Button>
+                        <Button
+                            asChild
+                            size="lg">
+                            <Link href="/register">
+                                <Rocket className="size-4" />
+                                <span>Get Started Free</span>
+                            </Link>
+                        </Button>
 
-                                <Button
-                                    asChild
-                                    size="lg"
-                                    variant="outline">
-                                    <Link href="/login">
-                                        <span>Sign In</span>
-                                    </Link>
-                                </Button>
+                        <Button
+                            asChild
+                            size="lg"
+                            variant="outline">
+                            <Link href="/login">
+                                <span>Sign In</span>
+                            </Link>
+                        </Button>
                             </>
                         ) : hasBothProfiles ? (
                             <>

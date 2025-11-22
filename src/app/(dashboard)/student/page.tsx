@@ -128,7 +128,7 @@ export default async function StudentDashboard() {
 
   return (
     <div className="px-4 lg:px-6 space-y-8">
-      <div>
+    <div>
         <h1 className="text-3xl font-bold">Student Dashboard</h1>
         <p className="text-muted-foreground mt-2">
           Welcome back, {session.user.name}!

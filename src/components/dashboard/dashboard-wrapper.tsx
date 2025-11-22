@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/dashboard/app-sidebar";
 import { SiteHeader } from "@/components/dashboard/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { ImpersonationBanner } from "@/components/admin/impersonation-banner";
 import { ReactNode } from "react";
 
 interface DashboardWrapperProps {
@@ -15,6 +16,10 @@ interface DashboardWrapperProps {
   hasTeacherProfile: boolean;
   hasStudentProfile: boolean;
   children: ReactNode;
+  impersonationInfo?: {
+    impersonatedUser: { id: string; name: string; email: string };
+    adminUser: { id: string; name: string; email: string };
+  } | null;
 }
 
 export function DashboardWrapper({
@@ -22,6 +27,7 @@ export function DashboardWrapper({
   hasTeacherProfile,
   hasStudentProfile,
   children,
+  impersonationInfo,
 }: DashboardWrapperProps) {
   const pathname = usePathname();
   
@@ -67,6 +73,13 @@ export function DashboardWrapper({
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              {impersonationInfo && (
+                <ImpersonationBanner
+                  impersonatedUserName={impersonationInfo.impersonatedUser.name}
+                  impersonatedUserEmail={impersonationInfo.impersonatedUser.email}
+                  adminUserName={impersonationInfo.adminUser.name}
+                />
+              )}
               {children}
             </div>
           </div>
