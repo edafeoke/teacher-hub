@@ -12,23 +12,26 @@ Built with trust, convenience, and quality at its core, TeacherHub transforms th
 
 The following environment variables are required for Appwrite storage integration (used for intro video uploads):
 
-- `NEXT_PUBLIC_APPWRITE_ENDPOINT` - Your Appwrite server endpoint URL (e.g., `https://cloud.appwrite.io/v1`)
-- `NEXT_PUBLIC_APPWRITE_PROJECT_ID` - Your Appwrite project ID
-- `NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID` - The bucket ID where intro videos will be stored (configurable for future changes)
+- `APPWRITE_ENDPOINT` - Your Appwrite server endpoint URL (e.g., `https://cloud.appwrite.io/v1`)
+- `APPWRITE_PROJECT_ID` - Your Appwrite project ID
+- `APPWRITE_API_KEY` - API key for server-side operations (with Storage permissions)
+- `APPWRITE_STORAGE_BUCKET_ID` - The bucket ID where intro videos will be stored (configurable for future changes)
 
-**Note:** These variables use the `NEXT_PUBLIC_` prefix because uploads are performed client-side. No API key is required.
+**Note:** Uploads are performed server-side via API route to avoid CORS issues. The API key is required for server-side operations.
 
 ### Example `.env` file
 
 ```env
-# Appwrite Configuration (Client-side uploads)
-NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
-NEXT_PUBLIC_APPWRITE_PROJECT_ID=your-project-id
-NEXT_PUBLIC_APPWRITE_STORAGE_BUCKET_ID=your-bucket-id
+# Appwrite Configuration (Server-side uploads)
+APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+APPWRITE_PROJECT_ID=your-project-id
+APPWRITE_API_KEY=your-api-key
+APPWRITE_STORAGE_BUCKET_ID=your-bucket-id
 ```
 
 **Important Notes:**
-- Videos are uploaded directly from the browser (client-side), so no API key is needed
+- Videos are uploaded via server-side API route (no CORS issues)
 - The file name in Appwrite storage uses the user's ID (userId)
 - The video URL is stored in the database in the `introVideoUrl` field
-- Make sure your Appwrite bucket has the appropriate permissions configured (CREATE and READ permissions for authenticated users or anonymous users, depending on your setup)
+- Make sure your Appwrite bucket has the appropriate permissions configured
+- The API key must have Storage permissions for the bucket

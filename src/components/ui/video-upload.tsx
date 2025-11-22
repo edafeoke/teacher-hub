@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
-import { getClientStorage, getClientBucketId, getClientFileUrl } from "@/lib/appwrite-client";
 import { authClient } from "@/lib/auth-client";
 
 interface VideoUploadProps {
@@ -123,48 +122,52 @@ export function VideoUpload({
     setError(null);
 
     try {
-      // Get old file ID if replacing (should be the userId if it was uploaded before)
-      const oldFileId = value ? extractFileIdFromUrl(value) : null;
-
       // Convert blob to File if needed
       const fileToUpload = file instanceof File 
         ? file 
         : new File([file], fileName, { type: file.type || "video/webm" });
 
-      // Get storage and bucket
-      const storage = getClientStorage();
-      const bucketId = getClientBucketId();
+      // Create form data for server-side upload
+      const formData = new FormData();
+      formData.append("file", fileToUpload);
 
-      // Delete old file if replacing (use userId as fileId since that's what we always use)
-      // This ensures we replace the existing video instead of creating a new one
-      try {
-        await storage.deleteFile(bucketId, userId);
-      } catch (err) {
-        // Log but don't fail if deletion fails (file might not exist or already deleted)
-        // This is expected if it's the first upload or file was already deleted
-        console.warn("Failed to delete old file (this is okay if file doesn't exist):", err);
-      }
+      // Upload with progress tracking using XMLHttpRequest for better progress support
+      const xhr = new XMLHttpRequest();
 
-      // Use userId as the file ID (as requested)
-      const fileId = userId;
+      const uploadPromise = new Promise<{ fileUrl: string; fileId: string }>((resolve, reject) => {
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            setUploadProgress(percentComplete);
+          }
+        });
 
-      // Upload file directly to Appwrite (client-side, no API key needed)
-      // Note: This requires the user to be authenticated with Appwrite
-      // or the bucket to allow anonymous uploads
-      const uploadedFile = await storage.createFile({
-        bucketId,
-        fileId,
-        file: fileToUpload,
+        xhr.addEventListener("load", () => {
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            if (response.success) {
+              resolve({ fileUrl: response.fileUrl, fileId: response.fileId });
+            } else {
+              reject(new Error(response.error || "Upload failed"));
+            }
+          } else {
+            const response = JSON.parse(xhr.responseText);
+            reject(new Error(response.error || "Upload failed"));
+          }
+        });
+
+        xhr.addEventListener("error", () => {
+          reject(new Error("Network error during upload"));
+        });
+
+        xhr.open("POST", "/api/upload/video");
+        xhr.send(formData);
       });
 
-      // Get file URL using userId (which is the fileId we used)
-      // uploadedFile.$id should be the same as userId, but use userId to be safe
-      const fileUrl = getClientFileUrl(userId);
-
-      // Store URL in database via onChange callback
-      onChange(fileUrl);
+      const result = await uploadPromise;
       
-      console.log("Video uploaded successfully. URL:", fileUrl);
+      // Store URL in database via onChange callback
+      onChange(result.fileUrl);
       setHasVideo(true);
       setUploadProgress(100);
     } catch (err) {
@@ -276,18 +279,18 @@ export function VideoUpload({
   };
 
   const handleRemove = async () => {
-    // Delete file from Appwrite using userId as fileId
-    // Since we always use userId as the fileId, we should delete using userId
-    if (value && userId) {
-      try {
-        const storage = getClientStorage();
-        const bucketId = getClientBucketId();
-        // Use userId as fileId (since that's what we use when uploading)
-        await storage.deleteFile(bucketId, userId);
-      } catch (err) {
-        // Log but don't fail - file might not exist or already deleted
-        // This is expected if the file was uploaded with a different ID before
-        console.warn("Error deleting file (this is okay if file doesn't exist):", err);
+    // Delete file from Appwrite via API route
+    if (value) {
+      const fileId = extractFileIdFromUrl(value);
+      if (fileId) {
+        try {
+          await fetch(`/api/upload/video?fileId=${fileId}`, {
+            method: "DELETE",
+          });
+        } catch (err) {
+          // Log but don't fail - file might not exist or already deleted
+          console.warn("Error deleting file (this is okay if file doesn't exist):", err);
+        }
       }
     }
 

@@ -110,15 +110,11 @@ export default function TeacherProfilePage() {
   const onSubmit = async (data: UpdateTeacherProfileData) => {
     setIsSaving(true);
     try {
-      console.log("Submitting profile data:", data);
-      console.log("introVideoUrl value:", data.introVideoUrl);
       const result = await updateTeacherProfile(data);
       if (result.success) {
-        console.log("Profile updated successfully. New profile:", result.profile);
         toast.success("Profile updated successfully!");
         setProfile(result.profile);
       } else {
-        console.error("Update failed:", result.error);
         toast.error(result.error || "Failed to update profile");
       }
     } catch (error) {
@@ -572,11 +568,7 @@ export default function TeacherProfilePage() {
               render={({ field }) => (
                 <VideoUpload
                   value={field.value || undefined}
-                  onChange={(url) => {
-                    console.log("VideoUpload onChange called with URL:", url);
-                    field.onChange(url === "" ? null : url || null);
-                    console.log("Form value after onChange:", form.getValues("introVideoUrl"));
-                  }}
+                  onChange={(url) => field.onChange(url === "" ? null : url || null)}
                 />
               )}
             />

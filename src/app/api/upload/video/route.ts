@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { getStorage, getBucketId, getFileUrl } from "@/lib/appwrite";
-import { ID } from "appwrite";
 
 const MAX_SIZE = 50 * 1024 * 1024; // 50MB in bytes
 const MAX_DURATION = 180; // 3 minutes in seconds
@@ -22,7 +21,6 @@ export async function POST(request: NextRequest) {
     // Get form data
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
-    const oldFileId = formData.get("oldFileId") as string | null;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -49,30 +47,26 @@ export async function POST(request: NextRequest) {
     // Note: Video duration validation would require server-side video processing
     // For now, we'll rely on client-side validation. This can be enhanced later.
 
-    // Delete old file if provided
-    if (oldFileId) {
-      try {
-        const storage = getStorage();
-        const bucketId = getBucketId();
-        await storage.deleteFile(bucketId, oldFileId);
-      } catch (error) {
-        // Log error but don't fail the upload if deletion fails
-        console.error("Error deleting old file:", error);
-      }
-    }
-
     // Upload to Appwrite
     const storage = getStorage();
     const bucketId = getBucketId();
 
-    // Create a unique file ID
-    const fileId = ID.unique();
+    // Use userId as the file ID (as requested)
+    const fileId = session.user.id;
+
+    // Delete old file if it exists (since we use userId as fileId, we replace the existing file)
+    try {
+      await storage.deleteFile(bucketId, fileId);
+    } catch (error) {
+      // Log but don't fail if deletion fails (file might not exist)
+      console.warn("Failed to delete old file (this is okay if file doesn't exist):", error);
+    }
 
     // Upload file (file from FormData is already a File object)
     const uploadedFile = await storage.createFile(bucketId, fileId, file);
 
-    // Get file URL
-    const fileUrl = getFileUrl(uploadedFile.$id);
+    // Get file URL using userId (which is the fileId)
+    const fileUrl = getFileUrl(fileId);
 
     return NextResponse.json({
       success: true,
