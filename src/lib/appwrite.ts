@@ -20,14 +20,14 @@ const getAppwriteClient = () => {
   client.setEndpoint(endpoint).setProject(projectId);
 
   // Set API key for server-side operations (REQUIRED for server-side file uploads)
-  const apiKey = process.env.NEXT_PUBLIC_APPWRITE_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "NEXT_PUBLIC_APPWRITE_API_KEY is required for server-side operations. " +
-      "Please add it to your .env file and restart the dev server."
-    );
-  }
-  client.setDevKey(apiKey);
+  // const apiKey = process.env.NEXT_PUBLIC_APPWRITE_API_KEY;
+  // if (!apiKey) {
+  //   throw new Error(
+  //     "NEXT_PUBLIC_APPWRITE_API_KEY is required for server-side operations. " +
+  //     "Please add it to your .env file and restart the dev server."
+  //   );
+  // }
+  // client.setDevKey(apiKey);
 
   return client;
 };
