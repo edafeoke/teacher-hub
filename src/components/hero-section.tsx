@@ -18,10 +18,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 const menuItems = [
-  { name: "For Teachers", href: "#features" },
-  { name: "For Students", href: "#features" },
-  { name: "How It Works", href: "#how-it-works" },
-  { name: "About", href: "#about" },
+  { name: "Teachers", href: "/teachers" },
+  { name: "How It Works", href: "/#how-it-works" },
+  { name: "About", href: "/#about" },
 ];
 
 export default function HeroSection() {

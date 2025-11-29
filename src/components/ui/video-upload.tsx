@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { startTransition } from "react";
 import { Upload, X, Video, VideoOff, Play, Pause, Square, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -81,45 +82,57 @@ export function VideoUpload({
   };
 
   const validateVideo = async (file: File): Promise<boolean> => {
-    setError(null);
-
-    // Check file size
+    // Check file size first (synchronous, fast)
     if (file.size > maxSize) {
-      setError(`Video file is too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB.`);
+      startTransition(() => {
+        setError(`Video file is too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB.`);
+      });
       return false;
     }
 
-    // Check video duration
+    // Check video duration (async, defer to avoid blocking)
     return new Promise((resolve) => {
-      const video = document.createElement("video");
-      video.preload = "metadata";
-      video.onloadedmetadata = () => {
-        window.URL.revokeObjectURL(video.src);
-        const duration = video.duration;
-        if (duration > maxDuration) {
-          setError(`Video is too long. Maximum duration is ${formatTime(maxDuration)}.`);
+      // Use setTimeout to defer heavy work off the main thread
+      setTimeout(() => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          window.URL.revokeObjectURL(video.src);
+          const duration = video.duration;
+          if (duration > maxDuration) {
+            startTransition(() => {
+              setError(`Video is too long. Maximum duration is ${formatTime(maxDuration)}.`);
+            });
+            resolve(false);
+          } else {
+            resolve(true);
+          }
+        };
+        video.onerror = () => {
+          startTransition(() => {
+            setError("Invalid video file.");
+          });
           resolve(false);
-        } else {
-          resolve(true);
-        }
-      };
-      video.onerror = () => {
-        setError("Invalid video file.");
-        resolve(false);
-      };
-      video.src = URL.createObjectURL(file);
+        };
+        video.src = URL.createObjectURL(file);
+      }, 0);
     });
   };
 
   const uploadVideo = async (file: File | Blob, fileName: string = "video.webm") => {
     if (!userId) {
-      setError("You must be logged in to upload videos");
+      startTransition(() => {
+        setError("You must be logged in to upload videos");
+      });
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
-    setError(null);
+    // Batch state updates to avoid multiple renders
+    startTransition(() => {
+      setIsUploading(true);
+      setUploadProgress(0);
+      setError(null);
+    });
 
     try {
       // Convert blob to File if needed
@@ -138,7 +151,10 @@ export function VideoUpload({
         xhr.upload.addEventListener("progress", (e) => {
           if (e.lengthComputable) {
             const percentComplete = (e.loaded / e.total) * 100;
-            setUploadProgress(percentComplete);
+            // Use requestAnimationFrame to batch progress updates
+            requestAnimationFrame(() => {
+              setUploadProgress(percentComplete);
+            });
           }
         });
 
@@ -166,38 +182,57 @@ export function VideoUpload({
 
       const result = await uploadPromise;
       
-      // Store URL in database via onChange callback
-      onChange(result.fileUrl);
-      setHasVideo(true);
-      setUploadProgress(100);
+      // Batch state updates
+      startTransition(() => {
+        // Store URL in database via onChange callback
+        onChange(result.fileUrl);
+        setHasVideo(true);
+        setUploadProgress(100);
+      });
     } catch (err) {
       console.error("Upload error:", err);
-      setError(err instanceof Error ? err.message : "Failed to upload video");
+      startTransition(() => {
+        setError(err instanceof Error ? err.message : "Failed to upload video");
+        setIsUploading(false);
+      });
     } finally {
-      setIsUploading(false);
-      // Reset progress after a short delay
-      setTimeout(() => setUploadProgress(0), 1000);
+      // Defer final state update
+      setTimeout(() => {
+        startTransition(() => {
+          setIsUploading(false);
+          setUploadProgress(0);
+        });
+      }, 100);
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Quick synchronous check first
     if (!file.type.startsWith("video/")) {
-      setError("Please select a valid video file.");
+      startTransition(() => {
+        setError("Please select a valid video file.");
+      });
       return;
     }
 
-    const isValid = await validateVideo(file);
-    if (!isValid) return;
+    // Defer heavy validation and upload to avoid blocking UI
+    startTransition(async () => {
+      const isValid = await validateVideo(file);
+      if (!isValid) return;
 
-    await uploadVideo(file, file.name);
+      await uploadVideo(file, file.name);
+    });
   };
 
   const startRecording = async () => {
     try {
-      setError(null);
+      startTransition(() => {
+        setError(null);
+      });
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
@@ -224,27 +259,30 @@ export function VideoUpload({
       mediaRecorder.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: "video/webm" });
         
+        // Stop all tracks first (non-blocking)
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        
         // Check blob size
         if (blob.size > maxSize) {
-          setError(`Recorded video is too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB.`);
-          // Stop all tracks
-          stream.getTracks().forEach((track) => track.stop());
-          streamRef.current = null;
+          startTransition(() => {
+            setError(`Recorded video is too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)}MB.`);
+          });
           return;
         }
 
-        // Stop all tracks
-        stream.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-
-        // Upload the recorded video
-        await uploadVideo(blob, userId + ".webm");
-        setIsDialogOpen(false);
+        // Upload the recorded video (defer to avoid blocking)
+        startTransition(async () => {
+          await uploadVideo(blob, userId + ".webm");
+          setIsDialogOpen(false);
+        });
       };
 
       mediaRecorder.start();
-      setIsRecording(true);
-      setRecordingTime(0);
+      startTransition(() => {
+        setIsRecording(true);
+        setRecordingTime(0);
+      });
 
       // Start timer
       timerRef.current = setInterval(() => {
@@ -252,14 +290,18 @@ export function VideoUpload({
           const newTime = prev + 1;
           if (newTime >= maxDuration) {
             stopRecording();
-            setError(`Maximum recording duration of ${formatTime(maxDuration)} reached.`);
+            startTransition(() => {
+              setError(`Maximum recording duration of ${formatTime(maxDuration)} reached.`);
+            });
           }
           return newTime;
         });
       }, 1000);
     } catch (err) {
       console.error("Error accessing camera:", err);
-      setError("Unable to access camera. Please check permissions.");
+      startTransition(() => {
+        setError("Unable to access camera. Please check permissions.");
+      });
     }
   };
 
@@ -271,32 +313,42 @@ export function VideoUpload({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    setIsRecording(false);
-    setRecordingTime(0);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    // Batch state updates
+    startTransition(() => {
+      setIsRecording(false);
+      setRecordingTime(0);
+    });
   };
 
-  const handleRemove = async () => {
-    // Delete file from Appwrite via API route
+  const handleRemove = () => {
+    // Delete file from Appwrite via API route (defer to avoid blocking)
     if (value) {
       const fileId = extractFileIdFromUrl(value);
       if (fileId) {
-        try {
-          await fetch(`/api/upload/video?fileId=${fileId}`, {
-            method: "DELETE",
-          });
-        } catch (err) {
-          // Log but don't fail - file might not exist or already deleted
-          console.warn("Error deleting file (this is okay if file doesn't exist):", err);
-        }
+        // Defer deletion to avoid blocking UI
+        startTransition(async () => {
+          try {
+            await fetch(`/api/upload/video?fileId=${fileId}`, {
+              method: "DELETE",
+            });
+          } catch (err) {
+            // Log but don't fail - file might not exist or already deleted
+            console.warn("Error deleting file (this is okay if file doesn't exist):", err);
+          }
+        });
       }
     }
 
-    onChange("");
-    setHasVideo(false);
-    setError(null);
+    // Batch state updates
+    startTransition(() => {
+      onChange("");
+      setHasVideo(false);
+      setError(null);
+    });
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -357,7 +409,12 @@ export function VideoUpload({
           type="button"
           variant="outline"
           size="sm"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => {
+            // Defer to avoid blocking UI
+            requestAnimationFrame(() => {
+              fileInputRef.current?.click();
+            });
+          }}
           disabled={isUploading}
         >
           {isUploading ? (
