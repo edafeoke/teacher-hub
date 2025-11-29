@@ -1,15 +1,20 @@
 "use client";
 
+import * as React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, DollarSign, Award, CheckCircle2 } from "lucide-react";
+import { Star, MapPin, DollarSign, Award, CheckCircle2, MessageSquare, Loader2 } from "lucide-react";
 import type { TeacherWithUser } from "@/server-actions/teachers/get-teachers";
+import { getOrCreateConversation } from "@/server-actions/messages/conversations";
+import { toast } from "sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface TeacherCardProps {
   teacher: TeacherWithUser;
+  currentUserId: string | null;
 }
 
 // Generate mock rating for now (since no reviews model exists)
@@ -19,7 +24,10 @@ function getMockRating(teacherId: string): number {
   return 4.0 + (hash % 10) / 10; // Rating between 4.0 and 4.9
 }
 
-export function TeacherCard({ teacher }: TeacherCardProps) {
+export function TeacherCard({ teacher, currentUserId }: TeacherCardProps) {
+  const router = useRouter();
+  const [isStartingConversation, setIsStartingConversation] = React.useState(false);
+  
   const initials = teacher.user.name
     .split(" ")
     .map((n) => n[0])
@@ -29,6 +37,39 @@ export function TeacherCard({ teacher }: TeacherCardProps) {
 
   const rating = getMockRating(teacher.id);
   const isVerified = teacher.verificationStatus === "verified";
+  const isLoggedIn = !!currentUserId;
+  const isOwnProfile = currentUserId === teacher.userId;
+
+  const handleStartConversation = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!currentUserId || isOwnProfile) {
+      console.log("Cannot start conversation:", { currentUserId, isOwnProfile, teacherUserId: teacher.userId });
+      return;
+    }
+
+    console.log("Starting conversation with teacher:", teacher.userId);
+    setIsStartingConversation(true);
+    try {
+      const result = await getOrCreateConversation(teacher.userId);
+      console.log("Conversation result:", result);
+      
+      if (result.success && result.conversationId) {
+        // Navigate to messages page with the conversation ID
+        console.log("Navigating to messages with conversation:", result.conversationId);
+        router.push(`/messages?conversation=${result.conversationId}`);
+      } else {
+        console.error("Failed to create conversation:", result.error);
+        toast.error(result.error || "Failed to start conversation");
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      toast.error("Failed to start conversation. Please try again.");
+    } finally {
+      setIsStartingConversation(false);
+    }
+  };
 
   return (
     <Card className="hover:shadow-lg transition-shadow h-full flex flex-col">
@@ -118,10 +159,39 @@ export function TeacherCard({ teacher }: TeacherCardProps) {
           )}
         </div>
 
-        <div className="mt-auto pt-4 border-t">
+        <div className="mt-auto pt-4 border-t space-y-2">
           <Button asChild variant="outline" className="w-full">
             <Link href={`/teachers/${teacher.id}`}>View Profile</Link>
           </Button>
+          
+          {isLoggedIn && !isOwnProfile ? (
+            <Button 
+              className="w-full" 
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleStartConversation(e);
+              }}
+              disabled={isStartingConversation}
+              type="button"
+            >
+              {isStartingConversation ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Starting...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Message
+                </>
+              )}
+            </Button>
+          ) : (
+            <div className="text-xs text-muted-foreground text-center py-2">
+              {!isLoggedIn ? "Login to message" : "This is your profile"}
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>

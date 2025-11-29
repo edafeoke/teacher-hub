@@ -19,12 +19,18 @@ import {
   Video,
   Mail,
   ArrowLeft,
+  MessageSquare,
+  Loader2,
 } from "lucide-react";
 import type { TeacherWithUser } from "@/server-actions/teachers/get-teachers";
+import { getOrCreateConversation } from "@/server-actions/messages/conversations";
+import { toast } from "sonner";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface TeacherProfileViewProps {
   teacher: TeacherWithUser;
+  currentUserId: string | null;
 }
 
 // Generate mock rating for now (since no reviews model exists)
@@ -33,7 +39,10 @@ function getMockRating(teacherId: string): number {
   return 4.0 + (hash % 10) / 10; // Rating between 4.0 and 4.9
 }
 
-export function TeacherProfileView({ teacher }: TeacherProfileViewProps) {
+export function TeacherProfileView({ teacher, currentUserId }: TeacherProfileViewProps) {
+  const router = useRouter();
+  const [isStartingConversation, setIsStartingConversation] = React.useState(false);
+  
   const initials = teacher.user.name
     .split(" ")
     .map((n) => n[0])
@@ -43,6 +52,29 @@ export function TeacherProfileView({ teacher }: TeacherProfileViewProps) {
 
   const rating = getMockRating(teacher.id);
   const isVerified = teacher.verificationStatus === "verified";
+  const isLoggedIn = !!currentUserId;
+  const isOwnProfile = currentUserId === teacher.userId;
+
+  const handleStartConversation = async () => {
+    if (!currentUserId || isOwnProfile) return;
+
+    setIsStartingConversation(true);
+    try {
+      const result = await getOrCreateConversation(teacher.userId);
+      
+      if (result.success && result.conversationId) {
+        // Navigate to messages page with the conversation ID
+        router.push(`/messages?conversation=${result.conversationId}`);
+      } else {
+        toast.error(result.error || "Failed to start conversation");
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+      toast.error("Failed to start conversation. Please try again.");
+    } finally {
+      setIsStartingConversation(false);
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 flex-1">
@@ -123,9 +155,30 @@ export function TeacherProfileView({ teacher }: TeacherProfileViewProps) {
                   )}
                 </div>
 
-                <Button className="w-full" size="lg">
-                  Contact Teacher
-                </Button>
+                {isLoggedIn && !isOwnProfile ? (
+                  <Button 
+                    className="w-full" 
+                    size="lg"
+                    onClick={handleStartConversation}
+                    disabled={isStartingConversation}
+                  >
+                    {isStartingConversation ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Starting...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Message
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button className="w-full" size="lg" variant="outline" disabled>
+                    {isOwnProfile ? "This is your profile" : "Login to message"}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

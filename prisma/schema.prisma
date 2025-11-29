@@ -20,6 +20,9 @@ model User {
   sessions       Session[]
   studentProfile StudentProfile?
   teacherProfile TeacherProfile?
+  conversationsAsParticipant1 Conversation[] @relation("Participant1")
+  conversationsAsParticipant2 Conversation[] @relation("Participant2")
+  sentMessages   Message[]
 
   role       String?
   banned     Boolean?  @default(false)
@@ -122,4 +125,70 @@ model StudentProfile {
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("student_profile")
+}
+
+model Conversation {
+  id            String    @id @default(cuid())
+  participant1Id String
+  participant2Id String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  lastMessageAt DateTime?
+  participant1  User      @relation("Participant1", fields: [participant1Id], references: [id], onDelete: Cascade)
+  participant2  User      @relation("Participant2", fields: [participant2Id], references: [id], onDelete: Cascade)
+  messages      Message[]
+
+  @@unique([participant1Id, participant2Id])
+  @@index([participant1Id, lastMessageAt])
+  @@index([participant2Id, lastMessageAt])
+  @@map("conversation")
+}
+
+enum MessageType {
+  TEXT
+  AUDIO
+  VIDEO
+  FILE
+  IMAGE
+  EMOJI
+}
+
+enum MessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String?
+  messageType    MessageType      @default(TEXT)
+  status         MessageStatus    @default(SENT)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now()) @updatedAt
+  conversation   Conversation     @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User             @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  attachments    MessageAttachment[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+  @@map("message")
+}
+
+model MessageAttachment {
+  id          String   @id @default(cuid())
+  messageId   String
+  fileUrl     String
+  fileName    String
+  fileType    String
+  fileSize    Int
+  thumbnailUrl String?
+  duration    Int?
+  createdAt   DateTime @default(now())
+  message     Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("message_attachment")
 }

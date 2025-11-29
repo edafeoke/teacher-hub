@@ -11,11 +11,12 @@ import { Users, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface TeachersClientProps {
   initialTeachers: TeacherWithUser[];
+  currentUserId: string | null;
 }
 
 type SortOption = "name" | "price-low" | "price-high" | "experience" | "rating";
 
-export function TeachersClient({ initialTeachers }: TeachersClientProps) {
+export function TeachersClient({ initialTeachers, currentUserId }: TeachersClientProps) {
   const [teachers] = React.useState<TeacherWithUser[]>(initialTeachers);
   const [filters, setFilters] = React.useState<FilterState>({
     search: "",
@@ -240,7 +241,7 @@ export function TeachersClient({ initialTeachers }: TeachersClientProps) {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {paginatedTeachers.map((teacher) => (
-                  <TeacherCard key={teacher.id} teacher={teacher} />
+                  <TeacherCard key={teacher.id} teacher={teacher} currentUserId={currentUserId} />
                 ))}
               </div>
 

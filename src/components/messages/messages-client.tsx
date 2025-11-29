@@ -1,20 +1,16 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import useSWR from "swr";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 import {
   Search,
-  Send,
   MoreVertical,
-  Paperclip,
-  Smile,
-  Check,
-  CheckCheck,
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import {
@@ -23,167 +19,18 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getConversations, type ConversationWithParticipant } from "@/server-actions/messages/conversations";
+import { getMessages, sendMessage, markMessagesAsRead, type MessageWithAttachments } from "@/server-actions/messages/messages";
+import { MessageInput } from "./message-input";
+import { MessageBubble } from "./message-bubble";
+import { toast } from "sonner";
 
-interface Message {
-  id: string;
-  content: string;
-  senderId: string;
-  timestamp: Date;
-  read: boolean;
-}
-
-interface Conversation {
-  id: string;
-  participant: {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-  };
-  lastMessage: {
-    content: string;
-    timestamp: Date;
-    read: boolean;
-  } | null;
-  unreadCount: number;
-  messages: Message[];
-}
+// SWR fetchers
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 interface MessagesClientProps {
   currentUserId: string;
 }
-
-// Mock data - replace with real data from database
-const mockConversations: Conversation[] = [
-  {
-    id: "1",
-    participant: {
-      id: "user2",
-      name: "Dr. Sarah Johnson",
-      email: "sarah@example.com",
-      image: null,
-    },
-    lastMessage: {
-      content: "Thank you for the session! I'll see you next week.",
-      timestamp: new Date(Date.now() - 1000 * 60 * 30), // 30 minutes ago
-      read: true,
-    },
-    unreadCount: 0,
-    messages: [
-      {
-        id: "m1",
-        content: "Hello! I'm interested in booking a session.",
-        senderId: "user2",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-        read: true,
-      },
-      {
-        id: "m2",
-        content: "Great! What time works best for you?",
-        senderId: "current",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2 + 1000 * 60 * 5),
-        read: true,
-      },
-      {
-        id: "m3",
-        content: "How about Tuesday at 3 PM?",
-        senderId: "user2",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1),
-        read: true,
-      },
-      {
-        id: "m4",
-        content: "That works perfectly! I'll send you the meeting link.",
-        senderId: "current",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1 + 1000 * 60 * 2),
-        read: true,
-      },
-      {
-        id: "m5",
-        content: "Thank you for the session! I'll see you next week.",
-        senderId: "user2",
-        timestamp: new Date(Date.now() - 1000 * 60 * 30),
-        read: true,
-      },
-    ],
-  },
-  {
-    id: "2",
-    participant: {
-      id: "user3",
-      name: "Michael Chen",
-      email: "michael@example.com",
-      image: null,
-    },
-    lastMessage: {
-      content: "Can we schedule a follow-up session?",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-      read: false,
-    },
-    unreadCount: 2,
-    messages: [
-      {
-        id: "m6",
-        content: "Hi, I'd like to discuss my progress.",
-        senderId: "user3",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4),
-        read: true,
-      },
-      {
-        id: "m7",
-        content: "Of course! How have you been doing with the exercises?",
-        senderId: "current",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3 + 1000 * 60 * 10),
-        read: true,
-      },
-      {
-        id: "m8",
-        content: "I've been practicing daily. Can we schedule a follow-up session?",
-        senderId: "user3",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-        read: false,
-      },
-    ],
-  },
-  {
-    id: "3",
-    participant: {
-      id: "user4",
-      name: "Emily Rodriguez",
-      email: "emily@example.com",
-      image: null,
-    },
-    lastMessage: {
-      content: "Looking forward to our session!",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-      read: true,
-    },
-    unreadCount: 0,
-    messages: [
-      {
-        id: "m9",
-        content: "Hello! I saw your profile and I'm very interested.",
-        senderId: "user4",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 25),
-        read: true,
-      },
-      {
-        id: "m10",
-        content: "Thank you! I'd be happy to help. What would you like to learn?",
-        senderId: "current",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 + 1000 * 60 * 15),
-        read: true,
-      },
-      {
-        id: "m11",
-        content: "Looking forward to our session!",
-        senderId: "user4",
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-        read: true,
-      },
-    ],
-  },
-];
 
 function formatMessageTime(date: Date): string {
   if (isToday(date)) {
@@ -206,37 +53,234 @@ function formatConversationTime(date: Date): string {
 }
 
 export function MessagesClient({ currentUserId }: MessagesClientProps) {
-  const [conversations] = React.useState<Conversation[]>(mockConversations);
-  const [selectedConversation, setSelectedConversation] = React.useState<Conversation | null>(
-    conversations[0] || null
-  );
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const conversationParam = searchParams.get("conversation");
+  
+  const [selectedConversationId, setSelectedConversationId] = React.useState<string | null>(conversationParam);
+  const [selectedConversation, setSelectedConversation] = React.useState<ConversationWithParticipant | null>(null);
   const [searchQuery, setSearchQuery] = React.useState("");
-  const [messageInput, setMessageInput] = React.useState("");
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Use SWR for conversations with real-time revalidation
+  const { data: conversations = [], mutate: mutateConversations, isLoading: isLoadingConversations } = useSWR<ConversationWithParticipant[]>(
+    "/api/messages/conversations",
+    fetcher,
+    {
+      refreshInterval: 2000, // Revalidate every 2 seconds
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    }
+  );
+
+  // Use SWR for messages with real-time revalidation
+  const { data: messagesData, mutate: mutateMessages, isLoading: isLoadingMessages } = useSWR<{ messages: MessageWithAttachments[]; hasMore: boolean }>(
+    selectedConversationId ? `/api/messages/${selectedConversationId}?page=${currentPage}&limit=50` : null,
+    fetcher,
+    {
+      refreshInterval: 1000, // Revalidate every 1 second for messages
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    }
+  );
+
+  const messages = messagesData?.messages || [];
+  const hasMoreMessages = messagesData?.hasMore || false;
+
+  // Handle conversation param and initial selection
+  React.useEffect(() => {
+    if (conversationParam && conversations.length > 0) {
+      const conversation = conversations.find(c => c.id === conversationParam);
+      if (conversation) {
+        setSelectedConversationId(conversation.id);
+        setSelectedConversation(conversation);
+        router.replace("/messages");
+      } else {
+        // Conversation not found, try to fetch it directly
+        setSelectedConversationId(conversationParam);
+        (async () => {
+          try {
+            const { getConversationById } = await import("@/server-actions/messages/conversations");
+            const convResult = await getConversationById(conversationParam);
+            if (convResult.success && convResult.conversation) {
+              const newConversation: ConversationWithParticipant = {
+                id: convResult.conversation.id,
+                participant: convResult.conversation.participant,
+                lastMessage: null,
+                unreadCount: 0,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              };
+              setSelectedConversation(newConversation);
+              mutateConversations([newConversation, ...conversations], false);
+            }
+          } catch (err) {
+            console.error("Error fetching conversation:", err);
+          }
+        })();
+        router.replace("/messages");
+      }
+    } else if (!selectedConversationId && conversations.length > 0) {
+      // Auto-select first conversation if none selected
+      setSelectedConversationId(conversations[0].id);
+      setSelectedConversation(conversations[0]);
+    }
+  }, [conversationParam, conversations, router, mutateConversations, selectedConversationId]);
+
+  // Mark messages as read when conversation is selected
+  React.useEffect(() => {
+    if (!selectedConversationId || messages.length === 0) return;
+
+    markMessagesAsRead(selectedConversationId).then(() => {
+      // Update conversation unread count
+      mutateConversations(
+        conversations.map((conv) =>
+          conv.id === selectedConversationId
+            ? { ...conv, unreadCount: 0 }
+            : conv
+        ),
+        false
+      );
+    });
+  }, [selectedConversationId, messages.length, conversations, mutateConversations]);
+
+  // Scroll to bottom when messages change
+  React.useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  // Update selected conversation when conversations list updates
+  React.useEffect(() => {
+    if (selectedConversationId && conversations.length > 0) {
+      const updated = conversations.find((c) => c.id === selectedConversationId);
+      if (updated) {
+        setSelectedConversation(updated);
+      }
+    }
+  }, [conversations, selectedConversationId]);
 
   const filteredConversations = React.useMemo(() => {
+    // Ensure conversations is always an array
+    const conversationsList = Array.isArray(conversations) ? conversations : [];
+    
     if (!searchQuery.trim()) {
-      return conversations;
+      return conversationsList;
     }
     const query = searchQuery.toLowerCase();
-    return conversations.filter((conv) =>
-      conv.participant.name.toLowerCase().includes(query) ||
-      conv.participant.email.toLowerCase().includes(query) ||
-      conv.lastMessage?.content.toLowerCase().includes(query)
+    return conversationsList.filter(
+      (conv) =>
+        conv.participant?.name?.toLowerCase().includes(query) ||
+        conv.participant?.email?.toLowerCase().includes(query) ||
+        conv.lastMessage?.content?.toLowerCase().includes(query)
     );
   }, [conversations, searchQuery]);
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim() || !selectedConversation) return;
-
-    // In a real app, this would send to the server
-    console.log("Sending message:", messageInput);
-    setMessageInput("");
+  const handleSelectConversation = (conversation: ConversationWithParticipant) => {
+    setSelectedConversationId(conversation.id);
+    setSelectedConversation(conversation);
+    setCurrentPage(1);
+    // SWR will automatically reload messages when the key changes
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  const handleSendMessage = async (
+    content: string,
+    messageType: "TEXT" | "AUDIO" | "VIDEO" | "FILE" | "IMAGE" | "EMOJI",
+    attachments?: Array<{
+      fileUrl: string;
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      thumbnailUrl?: string;
+      duration?: number;
+    }>
+  ) => {
+    if (!selectedConversationId) return;
+
+    try {
+      const result = await sendMessage({
+        conversationId: selectedConversationId,
+        content: content || undefined,
+        messageType: messageType as any, // Type conversion for Prisma enum
+        attachments: attachments?.map((att) => ({
+          fileUrl: att.fileUrl,
+          fileName: att.fileName,
+          fileType: att.fileType,
+          fileSize: att.fileSize,
+          thumbnailUrl: att.thumbnailUrl,
+          duration: att.duration,
+        })),
+      });
+
+      if (result.success && result.message) {
+        // Optimistically update messages using SWR mutate
+        mutateMessages(
+          (current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              messages: [...current.messages, result.message!],
+            };
+          },
+          false // Don't revalidate immediately, SWR will do it automatically
+        );
+        
+        // Update conversation last message
+        mutateConversations(
+          (current) => {
+            if (!current) return current;
+            return current.map((conv) =>
+              conv.id === selectedConversationId
+                ? {
+                    ...conv,
+                    lastMessage: {
+                      content: result.message!.content || `[${messageType}]`,
+                      timestamp: result.message!.timestamp,
+                      read: false,
+                    },
+                  }
+                : conv
+            );
+          },
+          false
+        );
+
+        // Trigger revalidation to get latest data
+        mutateMessages();
+        mutateConversations();
+      } else {
+        toast.error(result.error || "Failed to send message");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to send message");
+    }
+  };
+
+  const loadMoreMessages = async () => {
+    if (!selectedConversationId || !hasMoreMessages || isLoadingMessages) return;
+
+    const nextPage = currentPage + 1;
+    try {
+      const result = await getMessages(selectedConversationId, nextPage, 50);
+      if (result.success && result.messages) {
+        // Update messages with new page data using SWR mutate
+        mutateMessages(
+          (current) => {
+            if (!current) return current;
+            return {
+              messages: [...result.messages!, ...current.messages],
+              hasMore: result.hasMore || false,
+            };
+          },
+          false
+        );
+        setCurrentPage(nextPage);
+      }
+    } catch (error) {
+      console.error("Error loading more messages:", error);
     }
   };
 
@@ -275,66 +319,72 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
 
         {/* Conversations List */}
         <div className="flex-1 overflow-y-auto">
-          <div className="divide-y">
-            {filteredConversations.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <p>No conversations found</p>
-              </div>
-            ) : (
-              filteredConversations.map((conversation) => {
-                const initials = conversation.participant.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2);
+          {isLoadingConversations ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="divide-y">
+              {filteredConversations.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  <p>No conversations found</p>
+                </div>
+              ) : (
+                filteredConversations.map((conversation) => {
+                  const initials = conversation.participant.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 2);
 
-                const isSelected = selectedConversation?.id === conversation.id;
+                  const isSelected = selectedConversationId === conversation.id;
 
-                return (
-                  <button
-                    key={conversation.id}
-                    onClick={() => setSelectedConversation(conversation)}
-                    className={`w-full p-4 hover:bg-muted/50 transition-colors text-left ${
-                      isSelected ? "bg-muted" : ""
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Avatar className="h-12 w-12">
-                        <AvatarImage
-                          src={conversation.participant.image || undefined}
-                          alt={conversation.participant.name}
-                        />
-                        <AvatarFallback>{initials}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="font-semibold truncate">
-                            {conversation.participant.name}
-                          </h3>
-                          {conversation.lastMessage && (
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {formatConversationTime(conversation.lastMessage.timestamp)}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm text-muted-foreground truncate">
-                            {conversation.lastMessage?.content || "No messages yet"}
-                          </p>
-                          {conversation.unreadCount > 0 && (
-                            <Badge variant="default" className="ml-auto">
-                              {conversation.unreadCount}
-                            </Badge>
-                          )}
+                  return (
+                    <button
+                      key={conversation.id}
+                      onClick={() => handleSelectConversation(conversation)}
+                      className={`w-full p-4 hover:bg-muted/50 transition-colors text-left ${
+                        isSelected ? "bg-muted" : ""
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage
+                            src={conversation.participant.image || undefined}
+                            alt={conversation.participant.name}
+                          />
+                          <AvatarFallback>{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="font-semibold truncate">
+                              {conversation.participant.name}
+                            </h3>
+                            {conversation.lastMessage && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                {formatConversationTime(conversation.lastMessage.timestamp)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm text-muted-foreground truncate">
+                              {conversation.lastMessage?.content || "No messages yet"}
+                            </p>
+                            {conversation.unreadCount > 0 && (
+                              <Badge variant="default" className="ml-auto">
+                                {conversation.unreadCount}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })
-            )}
-          </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -382,91 +432,85 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4">
-              <div className="space-y-4">
-                {selectedConversation.messages.map((message) => {
-                  const isOwnMessage = message.senderId === currentUserId;
-                  return (
-                    <div
-                      key={message.id}
-                      className={`flex gap-3 ${isOwnMessage ? "justify-end" : "justify-start"}`}
-                    >
-                      {!isOwnMessage && (
-                        <Avatar className="h-8 w-8 mt-auto">
-                          <AvatarImage
-                            src={selectedConversation.participant.image || undefined}
-                            alt={selectedConversation.participant.name}
-                          />
-                          <AvatarFallback>
-                            {selectedConversation.participant.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()
-                              .slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <div className={`flex flex-col gap-1 max-w-[70%] ${isOwnMessage ? "items-end" : "items-start"}`}>
-                        <Card
-                          className={`px-4 py-2 ${
-                            isOwnMessage
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted"
+              {isLoadingMessages && messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {hasMoreMessages && (
+                    <div className="flex justify-center mb-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={loadMoreMessages}
+                        disabled={isLoadingMessages}
+                      >
+                        {isLoadingMessages ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : null}
+                        Load older messages
+                      </Button>
+                    </div>
+                  )}
+                  <div className="space-y-4">
+                    {messages.map((message) => {
+                      // Ensure both are strings for comparison
+                      const isOwnMessage = String(message.senderId) === String(currentUserId);
+                      return (
+                        <div
+                          key={message.id}
+                          className={`flex gap-3 ${
+                            isOwnMessage ? "justify-end" : "justify-start"
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        </Card>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground px-1">
-                          <span>{formatMessageTime(message.timestamp)}</span>
-                          {isOwnMessage && (
-                            <span>
-                              {message.read ? (
-                                <CheckCheck className="h-3 w-3 inline" />
-                              ) : (
-                                <Check className="h-3 w-3 inline" />
-                              )}
-                            </span>
+                          {!isOwnMessage && (
+                            <Avatar className="h-8 w-8 mt-auto flex-shrink-0">
+                              <AvatarImage
+                                src={selectedConversation.participant.image || undefined}
+                                alt={selectedConversation.participant.name}
+                              />
+                              <AvatarFallback>
+                                {selectedConversation.participant.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                                  .slice(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
                           )}
+                          {isOwnMessage && (
+                            <div className="w-8 flex-shrink-0" /> // Spacer for alignment
+                          )}
+                          <MessageBubble
+                            id={message.id}
+                            content={message.content}
+                            messageType={message.messageType}
+                            status={message.status}
+                            timestamp={message.timestamp}
+                            attachments={message.attachments}
+                            isOwnMessage={isOwnMessage}
+                          />
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t bg-background">
-              <div className="flex items-end gap-2">
-                <Button variant="ghost" size="icon" className="flex-shrink-0">
-                  <Paperclip className="h-5 w-5" />
-                </Button>
-                <Input
-                  placeholder="Type a message..."
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  className="flex-1"
-                />
-                <Button variant="ghost" size="icon" className="flex-shrink-0">
-                  <Smile className="h-5 w-5" />
-                </Button>
-                <Button
-                  onClick={handleSendMessage}
-                  disabled={!messageInput.trim()}
-                  size="icon"
-                  className="flex-shrink-0"
-                >
-                  <Send className="h-5 w-5" />
-                </Button>
-              </div>
-            </div>
+            <MessageInput onSend={handleSendMessage} />
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
               <p className="text-lg font-medium mb-2">Select a conversation</p>
-              <p className="text-sm">Choose a conversation from the sidebar to start messaging</p>
+              <p className="text-sm">
+                Choose a conversation from the sidebar to start messaging
+              </p>
             </div>
           </div>
         )}
@@ -474,4 +518,3 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
     </div>
   );
 }
-

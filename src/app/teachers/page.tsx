@@ -3,9 +3,12 @@ import { TeachersClient } from "@/components/teachers/teachers-client";
 import { Navbar } from "@/components/navbar";
 import FooterSection from "@/components/footer";
 import { ImpersonationBannerWrapper } from "@/components/impersonation-banner-wrapper";
+import { getSessionWithProfiles } from "@/lib/auth-helpers";
 
 export default async function TeachersPage() {
   const result = await getTeachers();
+  const session = await getSessionWithProfiles();
+  const currentUserId = session?.user?.id || null;
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 font-sans dark:bg-black">
@@ -23,9 +26,9 @@ export default async function TeachersPage() {
           </div>
         </div>
       ) : (
-        <TeachersClient initialTeachers={result.teachers} />
+        <TeachersClient initialTeachers={result.teachers} currentUserId={currentUserId} />
       )}
-      <FooterSection />
+      {/* <FooterSection /> */}
     </div>
   );
 }
