@@ -19,8 +19,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getConversations, type ConversationWithParticipant } from "@/server-actions/messages/conversations";
-import { getMessages, sendMessage, markMessagesAsRead, type MessageWithAttachments } from "@/server-actions/messages/messages";
+import type { ConversationWithParticipant } from "@/server-actions/messages/conversations";
+import type { MessageWithAttachments } from "@/server-actions/messages/messages";
 import { MessageInput } from "./message-input";
 import { MessageBubble } from "./message-bubble";
 import { toast } from "sonner";
@@ -101,19 +101,15 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
         setSelectedConversationId(conversationParam);
         (async () => {
           try {
-            const { getConversationById } = await import("@/server-actions/messages/conversations");
-            const convResult = await getConversationById(conversationParam);
-            if (convResult.success && convResult.conversation) {
-              const newConversation: ConversationWithParticipant = {
-                id: convResult.conversation.id,
-                participant: convResult.conversation.participant,
-                lastMessage: null,
-                unreadCount: 0,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              };
-              setSelectedConversation(newConversation);
-              mutateConversations([newConversation, ...conversations], false);
+            const response = await fetch(`/api/messages/conversations`);
+            const allConversations = await response.json();
+            const found = Array.isArray(allConversations)
+              ? allConversations.find((c: ConversationWithParticipant) => c.id === conversationParam)
+              : null;
+            
+            if (found) {
+              setSelectedConversation(found);
+              mutateConversations([found, ...conversations], false);
             }
           } catch (err) {
             console.error("Error fetching conversation:", err);
@@ -132,17 +128,24 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
   React.useEffect(() => {
     if (!selectedConversationId || messages.length === 0) return;
 
-    markMessagesAsRead(selectedConversationId).then(() => {
-      // Update conversation unread count
-      mutateConversations(
-        conversations.map((conv) =>
-          conv.id === selectedConversationId
-            ? { ...conv, unreadCount: 0 }
-            : conv
-        ),
-        false
-      );
-    });
+    fetch(`/api/messages/${selectedConversationId}/read`, {
+      method: "POST",
+    })
+      .then((res) => res.json())
+      .then(() => {
+        // Update conversation unread count
+        mutateConversations(
+          conversations.map((conv) =>
+            conv.id === selectedConversationId
+              ? { ...conv, unreadCount: 0 }
+              : conv
+          ),
+          false
+        );
+      })
+      .catch((err) => {
+        console.error("Error marking messages as read:", err);
+      });
   }, [selectedConversationId, messages.length, conversations, mutateConversations]);
 
   // Scroll to bottom when messages change
@@ -199,34 +202,79 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
   ) => {
     if (!selectedConversationId) return;
 
+    // Create optimistic message for immediate UI update
+    const optimisticMessage: MessageWithAttachments = {
+      id: `temp-${Date.now()}`,
+      conversationId: selectedConversationId,
+      senderId: currentUserId,
+      content: content || null,
+      messageType: messageType as any,
+      status: "SENT",
+      timestamp: new Date(),
+      attachments: attachments?.map((att, idx) => ({
+        id: `temp-att-${Date.now()}-${idx}`,
+        fileUrl: att.fileUrl,
+        fileName: att.fileName,
+        fileType: att.fileType,
+        fileSize: att.fileSize,
+        thumbnailUrl: att.thumbnailUrl || null,
+        duration: att.duration || null,
+      })) || [],
+    };
+
+    // Optimistically update messages
+    mutateMessages(
+      (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          messages: [...current.messages, optimisticMessage],
+        };
+      },
+      false
+    );
+
     try {
-      const result = await sendMessage({
-        conversationId: selectedConversationId,
-        content: content || undefined,
-        messageType: messageType as any, // Type conversion for Prisma enum
-        attachments: attachments?.map((att) => ({
-          fileUrl: att.fileUrl,
-          fileName: att.fileName,
-          fileType: att.fileType,
-          fileSize: att.fileSize,
-          thumbnailUrl: att.thumbnailUrl,
-          duration: att.duration,
-        })),
+      const response = await fetch(`/api/messages/${selectedConversationId}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          content: content || undefined,
+          messageType,
+          attachments: attachments?.map((att) => ({
+            fileUrl: att.fileUrl,
+            fileName: att.fileName,
+            fileType: att.fileType,
+            fileSize: att.fileSize,
+            thumbnailUrl: att.thumbnailUrl,
+            duration: att.duration,
+          })),
+        }),
       });
 
-      if (result.success && result.message) {
-        // Optimistically update messages using SWR mutate
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to send message");
+      }
+
+      if (result.message) {
+        // Replace optimistic message with real one
         mutateMessages(
           (current) => {
             if (!current) return current;
             return {
               ...current,
-              messages: [...current.messages, result.message!],
+              messages: current.messages.map((msg) =>
+                msg.id === optimisticMessage.id ? result.message : msg
+              ),
             };
           },
-          false // Don't revalidate immediately, SWR will do it automatically
+          false
         );
-        
+
         // Update conversation last message
         mutateConversations(
           (current) => {
@@ -236,8 +284,8 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
                 ? {
                     ...conv,
                     lastMessage: {
-                      content: result.message!.content || `[${messageType}]`,
-                      timestamp: result.message!.timestamp,
+                      content: result.message.content || `[${messageType}]`,
+                      timestamp: result.message.timestamp,
                       read: false,
                     },
                   }
@@ -250,12 +298,26 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
         // Trigger revalidation to get latest data
         mutateMessages();
         mutateConversations();
-      } else {
-        toast.error(result.error || "Failed to send message");
       }
     } catch (error) {
+      // Rollback optimistic update on error
+      mutateMessages(
+        (current) => {
+          if (!current) return current;
+          return {
+            ...current,
+            messages: current.messages.filter(
+              (msg) => msg.id !== optimisticMessage.id
+            ),
+          };
+        },
+        false
+      );
+
       console.error("Error sending message:", error);
-      toast.error("Failed to send message");
+      toast.error(
+        error instanceof Error ? error.message : "Failed to send message"
+      );
     }
   };
 
@@ -263,15 +325,21 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
     if (!selectedConversationId || !hasMoreMessages || isLoadingMessages) return;
 
     const nextPage = currentPage + 1;
+    
+    // Fetch the next page
     try {
-      const result = await getMessages(selectedConversationId, nextPage, 50);
-      if (result.success && result.messages) {
+      const response = await fetch(
+        `/api/messages/${selectedConversationId}?page=${nextPage}&limit=50`
+      );
+      const result = await response.json();
+
+      if (response.ok && result.messages) {
         // Update messages with new page data using SWR mutate
         mutateMessages(
           (current) => {
             if (!current) return current;
             return {
-              messages: [...result.messages!, ...current.messages],
+              messages: [...result.messages, ...current.messages],
               hasMore: result.hasMore || false,
             };
           },
@@ -281,6 +349,7 @@ export function MessagesClient({ currentUserId }: MessagesClientProps) {
       }
     } catch (error) {
       console.error("Error loading more messages:", error);
+      toast.error("Failed to load more messages");
     }
   };
 
