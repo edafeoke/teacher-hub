@@ -10,6 +10,8 @@ import {
   MessageSquare,
   Bell,
   GraduationCap,
+  Megaphone,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -78,6 +80,16 @@ export function AppSidebar({
       icon: Calendar,
     },
     {
+      title: "Advertisements",
+      url: "/teacher/advertisements",
+      icon: Megaphone,
+    },
+    {
+      title: "Contracts",
+      url: "/teacher/contracts",
+      icon: FileText,
+    },
+    {
       title: "Profile",
       url: "/teacher/profile",
       icon: User,
@@ -99,6 +111,16 @@ export function AppSidebar({
       title: "Schedule",
       url: "/student/schedule",
       icon: Calendar,
+    },
+    {
+      title: "Advertisements",
+      url: "/student/advertisements",
+      icon: Megaphone,
+    },
+    {
+      title: "Contracts",
+      url: "/student/contracts",
+      icon: FileText,
     },
     {
       title: "Profile",

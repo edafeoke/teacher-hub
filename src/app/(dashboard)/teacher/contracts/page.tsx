@@ -1,40 +1,41 @@
 import { getSessionWithProfiles } from "@/lib/auth-helpers";
 import { redirect } from "next/navigation";
-import { getBookings } from "@/server-actions/bookings/get-bookings";
-import { BookingList } from "@/components/bookings/booking-list";
+import { getContracts } from "@/server-actions/contracts/get-contracts";
+import { ContractList } from "@/components/contracts/contract-list";
 
-export default async function StudentSchedulePage() {
+export default async function TeacherContractsPage() {
   const session = await getSessionWithProfiles();
 
   if (!session?.user) {
     redirect("/login");
   }
 
-  if (!session.user.studentProfile) {
+  if (!session.user.teacherProfile) {
     redirect("/onboarding");
   }
 
-  const result = await getBookings({
+  const result = await getContracts({
     userId: session.user.id,
-    role: "student",
+    role: "teacher",
   });
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold">My Schedule</h1>
+        <h1 className="text-3xl font-bold">My Contracts</h1>
         <p className="text-muted-foreground mt-2">
-          View and manage your booked sessions
+          Manage your teaching contracts
         </p>
       </div>
 
       {!result.success ? (
         <div className="text-center py-8">
-          <p className="text-muted-foreground">{result.error || "Failed to load schedule"}</p>
+          <p className="text-muted-foreground">{result.error || "Failed to load contracts"}</p>
         </div>
       ) : (
-        <BookingList bookings={result.bookings || []} role="student" />
+        <ContractList contracts={result.contracts || []} role="teacher" />
       )}
     </div>
   );
 }
+

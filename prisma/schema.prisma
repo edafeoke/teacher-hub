@@ -23,6 +23,15 @@ model User {
   conversationsAsParticipant1 Conversation[] @relation("Participant1")
   conversationsAsParticipant2 Conversation[] @relation("Participant2")
   sentMessages   Message[]
+  subscriptions Subscription[]
+  bookingsAsTeacher Booking[] @relation("TeacherBookings")
+  bookingsAsStudent Booking[] @relation("StudentBookings")
+  contractsAsTeacher Contract[] @relation("TeacherContracts")
+  contractsAsStudent Contract[] @relation("StudentContracts")
+  paymentsAsPayer Payment[] @relation("PayerPayments")
+  paymentsAsPayee Payment[] @relation("PayeePayments")
+  bookingRequestsAsRequester BookingRequest[] @relation("RequesterRequests")
+  bookingRequestsAsRequestee BookingRequest[] @relation("RequesteeRequests")
 
   role       String?
   banned     Boolean?  @default(false)
@@ -101,6 +110,7 @@ model TeacherProfile {
   verificationStatus String?   @default("pending")
   yearsOfExperience  Int?
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expertiseAdvertisements ExpertiseAdvertisement[]
 
   @@map("teacher_profile")
 }
@@ -123,6 +133,7 @@ model StudentProfile {
   preferredMode      String?
   subjectsOfInterest String[]
   user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  learningNeedAdvertisements LearningNeedAdvertisement[]
 
   @@map("student_profile")
 }
@@ -191,4 +202,206 @@ model MessageAttachment {
 
   @@index([messageId])
   @@map("message_attachment")
+}
+
+enum SubscriptionPlanType {
+  BASIC
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  planType  SubscriptionPlanType @default(BASIC)
+  status    SubscriptionStatus @default(ACTIVE)
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("subscription")
+}
+
+model ExpertiseAdvertisement {
+  id                String   @id @default(cuid())
+  teacherId         String
+  title             String
+  description       String
+  subjects          String[]
+  hourlyRate        Float
+  availableTimeSlots Json
+  specialOffers     Json?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+  teacherProfile    TeacherProfile @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
+  @@index([isActive])
+  @@map("expertise_advertisement")
+}
+
+model LearningNeedAdvertisement {
+  id                String   @id @default(cuid())
+  studentId         String
+  title             String
+  description       String
+  subjects          String[]
+  budgetRange       String
+  preferredSchedule Json
+  learningGoals     String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @default(now()) @updatedAt
+  studentProfile    StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([isActive])
+  @@map("learning_need_advertisement")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  teacherId       String
+  studentId       String
+  contractId      String?
+  subject         String
+  startTime       DateTime
+  endTime         DateTime
+  duration        Int           // in minutes
+  status          BookingStatus @default(PENDING)
+  notes           String?
+  price           Float
+  paymentStatus   PaymentStatus @default(PENDING)
+  isRecurring     Boolean       @default(false)
+  recurringPattern Json?
+  parentBookingId String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @default(now()) @updatedAt
+  teacher         User          @relation("TeacherBookings", fields: [teacherId], references: [id], onDelete: Cascade)
+  student         User          @relation("StudentBookings", fields: [studentId], references: [id], onDelete: Cascade)
+  contract        Contract?     @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  parentBooking   Booking?      @relation("RecurringBookings", fields: [parentBookingId], references: [id])
+  childBookings   Booking[]     @relation("RecurringBookings")
+  payments        Payment[]
+  bookingRequests BookingRequest[]
+
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([contractId])
+  @@index([status])
+  @@index([startTime])
+  @@map("booking")
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+model Contract {
+  id            String        @id @default(cuid())
+  teacherId     String
+  studentId     String
+  title         String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime?
+  totalHours    Int
+  hourlyRate    Float
+  totalAmount   Float
+  status        ContractStatus @default(DRAFT)
+  terms         Json?
+  paymentStatus PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+  teacher       User          @relation("TeacherContracts", fields: [teacherId], references: [id], onDelete: Cascade)
+  student       User          @relation("StudentContracts", fields: [studentId], references: [id], onDelete: Cascade)
+  bookings      Booking[]
+  payments      Payment[]
+
+  @@index([teacherId])
+  @@index([studentId])
+  @@index([status])
+  @@map("contract")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  bookingId     String?
+  contractId    String?
+  payerId       String
+  payeeId       String
+  amount        Float
+  currency      String        @default("USD")
+  status        PaymentStatus @default(PENDING)
+  paymentMethod String?
+  transactionId String?
+  paymentDate   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
+  booking       Booking?      @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  contract      Contract?     @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  payer         User          @relation("PayerPayments", fields: [payerId], references: [id], onDelete: Cascade)
+  payee         User          @relation("PayeePayments", fields: [payeeId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([contractId])
+  @@index([payerId])
+  @@index([payeeId])
+  @@index([status])
+  @@map("payment")
+}
+
+enum BookingRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+model BookingRequest {
+  id            String              @id @default(cuid())
+  bookingId     String
+  requestedBy   String
+  requestedFrom String
+  status        BookingRequestStatus @default(PENDING)
+  message       String?
+  expiresAt     DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @default(now()) @updatedAt
+  booking       Booking             @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  requester     User                @relation("RequesterRequests", fields: [requestedBy], references: [id], onDelete: Cascade)
+  requestee     User                @relation("RequesteeRequests", fields: [requestedFrom], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([requestedBy])
+  @@index([requestedFrom])
+  @@index([status])
+  @@map("booking_request")
 }
